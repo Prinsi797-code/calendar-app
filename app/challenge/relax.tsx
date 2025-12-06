@@ -1,0 +1,221 @@
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
+
+interface ChallengeOption {
+    id: string;
+    title: string;
+    subtitle: string;
+    icon: string;
+}
+
+const relaxChallenges: ChallengeOption[] = [
+  {
+    id: 'body',
+    title: 'Relax your mind and body',
+    subtitle: 'Relieve anxiety, depression and sleep problems',
+    icon: 'meditation',
+  },
+  {
+    id: 'brushing',
+    title: 'Regular tooth brushing',
+    subtitle: 'Gear up for the day ahead',
+    icon: 'toothbrush',
+  },
+  {
+    id: 'books',
+    title: 'Read books',
+    subtitle: 'Strengthen the brain and lengthen lifespan',
+    icon: 'book-open-page-variant',
+  },
+  {
+    id: 'sleep',
+    title: 'Get enough sleep',
+    subtitle: 'Reduce stress and improve your mood',
+    icon: 'sleep',
+  },
+  {
+    id: 'journal',
+    title: 'Keep a journal',
+    subtitle: 'Allow yourself to self-reflect',
+    icon: 'notebook-edit-outline',
+  },
+  {
+    id: 'shower',
+    title: 'Take a shower',
+    subtitle: 'Decreased anxiety',
+    icon: 'shower',
+  },
+  {
+    id: 'music',
+    title: 'Listen to music',
+    subtitle: 'Provide comfort and lessen anxiety',
+    icon: 'music-note',
+  },
+  {
+    id: 'smile',
+    title: 'Smile everyday',
+    subtitle: 'Smiling elevates mood',
+    icon: 'emoticon-happy-outline',
+  },
+  {
+    id: 'chat',
+    title: 'Chat with friends',
+    subtitle: 'Reduce pressure in your life',
+    icon: 'chat-outline',
+  },
+  {
+    id: 'sleep2',
+    title: 'Sleep early',
+    subtitle: 'Improve your memories',
+    icon: 'bed-clock',
+  },
+  {
+    id: 'media',
+    title: 'Break away from media',
+    subtitle: 'Find value in yourself',
+    icon: 'cellphone-off',
+  },
+];
+
+
+export default function RelaxationScreen() {
+    const router = useRouter();
+    const { theme, colors } = useTheme();
+
+    const handleChallengeSelect = (challenge: ChallengeOption) => {
+        router.push({
+            pathname: '/challenge/new',
+            params: {
+                title: challenge.title,
+                icon: challenge.icon,
+                category: 'relax'
+            }
+        });
+    };
+
+    return (
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            {/* Header */}
+            <View style={styles.header}>
+                <View style={styles.leftContainer}>
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        style={styles.backButton}>
+                        <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                        Self relaxation
+                    </Text>
+                </View>
+            </View>
+
+            <ScrollView style={styles.scrollView}>
+                <View style={styles.challengesList}>
+                    {relaxChallenges.map((challenge) => (
+                        <TouchableOpacity
+                            key={challenge.id}
+                            style={[styles.challengeCard, { backgroundColor: colors.cardBackground }]}
+                            activeOpacity={0.7}
+                            onPress={() => handleChallengeSelect(challenge)}
+                        >
+                            <View style={styles.iconContainer}>
+                                {/* <Text style={styles.iconText}>{challenge.icon}</Text> */}
+                                <MaterialCommunityIcons
+                                    name={challenge.icon}
+                                    size={24}
+                                    color={colors.textPrimary}
+                                />
+                            </View>
+                            <View style={styles.textContainer}>
+                                <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
+                                    {challenge.title}
+                                </Text>
+                                <Text style={[styles.challengeSubtitle, { color: colors.textSecondary }]}>
+                                    {challenge.subtitle}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        // borderBottomWidth: 1,
+        // borderBottomColor: '#2a2a2a',
+    },
+    leftContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    backButton: {
+        padding: 4,
+        marginRight: 10,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    placeholder: {
+        width: 32,
+    },
+    scrollView: {
+        flex: 1,
+        paddingHorizontal: 16,
+    },
+    challengesList: {
+        paddingVertical: 16,
+        gap: 12,
+    },
+    challengeCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 12,
+        padding: 16,
+    },
+    iconContainer: {
+        // width: 48,
+        // height: 48,
+        borderRadius: 24,
+        // backgroundColor: '#f5f5f5',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+    },
+    iconText: {
+        fontSize: 24,
+    },
+    textContainer: {
+        flex: 1,
+    },
+    challengeTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    challengeSubtitle: {
+        fontSize: 13,
+        lineHeight: 18,
+    },
+});

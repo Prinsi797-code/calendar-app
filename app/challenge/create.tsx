@@ -1,0 +1,271 @@
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useTheme } from '../../contexts/ThemeContext';
+
+interface CreateOption {
+    id: string;
+    title: string;
+    icon: string;
+    iconBg: string;
+}
+
+interface Category {
+    id: string;
+    title: string;
+    subtitle: string;
+    emoji: string;
+}
+
+const createOptions: CreateOption[] = [
+    {
+        id: 'regular',
+        title: 'Regular habit',
+        icon: 'calendar',
+        iconBg: '#9333EA',
+    },
+    {
+        id: 'onetime',
+        title: 'One time task',
+        icon: 'file-text',
+        iconBg: '#F59E0B',
+    },
+];
+
+const categories: Category[] = [
+    {
+        id: 'eat',
+        title: 'Eat healthy',
+        subtitle: 'Eating healthy is about balance',
+        emoji: '🥗',
+    },
+    {
+        id: 'relax',
+        title: 'Self relaxation',
+        subtitle: 'Do something nice for you',
+        emoji: '🧘',
+    },
+    {
+        id: 'active',
+        title: 'Be active my way',
+        subtitle: 'Bunch of other positive spin-offs',
+        emoji: '🚴',
+    },
+    {
+        id: 'weird',
+        title: 'Be weird. Be you',
+        subtitle: 'Being called weird is the best',
+        emoji: '🦄',
+    },
+    {
+        id: 'connect',
+        title: 'Connect with others',
+        subtitle: 'Live longer and decrease our risk of isolation',
+        emoji: '👥',
+    },
+    {
+        id: 'improvement',
+        title: 'Self improvement',
+        subtitle: 'Aware of your personality, thoughts &',
+        emoji: '💡',
+    },
+];
+
+export default function CreateScreen() {
+    const router = useRouter();
+    const { theme, colors } = useTheme();
+
+    const handleCreateOption = (optionId: string) => {
+        router.push({
+            pathname: '/challenge/new',
+            params: { type: optionId }
+        });
+    };
+
+    const handleCategory = (categoryId: string) => {
+        // Navigate to specific category pages
+        const categoryPaths: { [key: string]: string } = {
+            'eat': '/challenge/eat',
+            'relax': '/challenge/relax',
+            'active': '/challenge/active',
+            'weird': '/challenge/weird',
+            'connect': '/challenge/connect',
+            'improvement': '/challenge/improvement',
+        };
+
+        const path = categoryPaths[categoryId];
+        if (path) {
+            router.push(path as any);
+        }
+    };
+
+    return (
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            {/* Header */}
+            <View style={styles.header}>
+                <View style={styles.leftContainer}>
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        style={styles.backButton}
+                    >
+                        <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
+
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                        Create
+                    </Text>
+                </View>
+            </View>
+
+            <ScrollView style={styles.scrollView}>
+                {/* Create your own section */}
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                    Create your own
+                </Text>
+
+                <View style={styles.createOptionsContainer}>
+                    {createOptions.map((option) => (
+                        <TouchableOpacity
+                            key={option.id}
+                            style={[styles.createOptionCard, { backgroundColor: colors.cardBackground }]}
+                            activeOpacity={0.7}
+                            onPress={() => handleCreateOption(option.id)}
+                        >
+                            <View style={[styles.optionIconContainer, { backgroundColor: option.iconBg }]}>
+                                <Feather name={option.icon as any} size={24} color="#fff" />
+                            </View>
+                            <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
+                                {option.title}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {/* Categories section */}
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>
+                    Choose from these categories
+                </Text>
+
+                <View style={styles.categoriesContainer}>
+                    {categories.map((category) => (
+                        <TouchableOpacity
+                            key={category.id}
+                            style={[styles.categoryCard, { backgroundColor: colors.cardBackground }]}
+                            activeOpacity={0.7}
+                            onPress={() => handleCategory(category.id)}
+                        >
+                            <View style={styles.categoryContent}>
+                                <Text style={styles.categoryEmoji}>{category.emoji}</Text>
+                                <View style={styles.categoryTextContainer}>
+                                    <Text style={[styles.categoryTitle, { color: colors.textPrimary }]}>
+                                        {category.title}
+                                    </Text>
+                                    <Text style={[styles.categorySubtitle, { color: colors.textSecondary }]}>
+                                        {category.subtitle}
+                                    </Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    leftContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    backButton: {
+        padding: 4,
+        marginRight: 10,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    placeholder: {
+        width: 32,
+    },
+    scrollView: {
+        flex: 1,
+        paddingHorizontal: 16,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        marginTop: 20,
+        marginBottom: 12,
+    },
+    createOptionsContainer: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    createOptionCard: {
+        flex: 1,
+        borderRadius: 12,
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    optionIconContainer: {
+        width: 56,
+        height: 56,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    optionTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    categoriesContainer: {
+        gap: 12,
+        paddingBottom: 24,
+    },
+    categoryCard: {
+        borderRadius: 12,
+        padding: 16,
+    },
+    categoryContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    categoryEmoji: {
+        fontSize: 40,
+        marginRight: 16,
+    },
+    categoryTextContainer: {
+        flex: 1,
+    },
+    categoryTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    categorySubtitle: {
+        fontSize: 13,
+        lineHeight: 18,
+    },
+});
