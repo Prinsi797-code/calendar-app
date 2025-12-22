@@ -2,13 +2,19 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Calendar } from 'react-native-calendars';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from "react-i18next";
+import { Alert, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useTheme } from '../../contexts/ThemeContext';
 import { loadData, saveData } from '../../utils/storage';
 
-// Country code to Google Calendar ID mapping
+declare global {
+  var firstDayChanged: ((day: number) => void) | undefined;
+}
+
+export { };
+
 const COUNTRY_CALENDAR_IDS: Record<string, string> = {
   'Afghanistan': 'en.afghan#holiday@group.v.calendar.google.com',
   'Albania': 'en.albanian#holiday@group.v.calendar.google.com',
@@ -53,22 +59,120 @@ export default function CalendarScreen({ navigation }: any) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedCountry, setSelectedCountry] = useState('India');
   const [loadingHolidays, setLoadingHolidays] = useState(true);
+  const { t, i18n } = useTranslation();
 
   const [currentMonth, setCurrentMonth] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
   });
-
+  const pulseAnim = useRef(new Animated.Value(0)).current;
   const API_KEY = "AIzaSyCbk3aJTWGqJZVHtb3SR7OqzUFEc9Cewe0";
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const pulseStyle = {
+    transform: [
+      {
+        scale: pulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.6],
+        }),
+      },
+    ],
+    opacity: pulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.6, 0],
+    }),
+  };
+
+  useEffect(() => {
+    LocaleConfig.locales['custom'] = {
+      monthNames: [
+        t('January'),
+        t('February'),
+        t('March'),
+        t('April'),
+        t('May'),
+        t('June'),
+        t('July'),
+        t('August'),
+        t('September'),
+        t('October'),
+        t('November'),
+        t('December')
+      ],
+      monthNamesShort: [
+        t('January').substring(0, 3),
+        t('February').substring(0, 3),
+        t('March').substring(0, 3),
+        t('April').substring(0, 3),
+        t('May').substring(0, 3),
+        t('June').substring(0, 3),
+        t('July').substring(0, 3),
+        t('August').substring(0, 3),
+        t('September').substring(0, 3),
+        t('October').substring(0, 3),
+        t('November').substring(0, 3),
+        t('December').substring(0, 3)
+      ],
+      dayNames: [
+        t('Sunday'),
+        t('Monday'),
+        t('Tuesday'),
+        t('Wednesday'),
+        t('Thursday'),
+        t('Friday'),
+        t('Saturday')
+      ],
+      dayNamesShort: [
+        t('Sunday').substring(0, 3),
+        t('Monday').substring(0, 3),
+        t('Tuesday').substring(0, 3),
+        t('Wednesday').substring(0, 3),
+        t('Thursday').substring(0, 3),
+        t('Friday').substring(0, 3),
+        t('Saturday').substring(0, 3)
+      ],
+      today: t('Today')
+    };
+
+    LocaleConfig.defaultLocale = 'custom';
+    setRefreshKey(prev => prev + 1);
+  }, [i18n.language, t]);
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     setSelectedDate(today);
-    loadFirstDay();
+    // loadFirstDay();
+    setShowMonthEvents(true);
     loadSelectedCountry();
   }, []);
+  useEffect(() => {
+    global.firstDayChanged = (day: number) => {
+      setFirstDayOfWeek(day);
+      setRefreshKey(prev => prev + 1);
+    };
 
-  // Load selected country from storage
+    return () => {
+      global.firstDayChanged = undefined;
+    };
+  }, []);
+
   const loadSelectedCountry = async () => {
     try {
       const country = await AsyncStorage.getItem('selectedCountry');
@@ -76,7 +180,6 @@ export default function CalendarScreen({ navigation }: any) {
         setSelectedCountry(country);
         fetchHolidays(country);
       } else {
-        // Default to India if no country selected
         setSelectedCountry('India');
         fetchHolidays('India');
       }
@@ -86,12 +189,11 @@ export default function CalendarScreen({ navigation }: any) {
     }
   };
 
-  // Fetch holidays from Google Calendar API
   const fetchHolidays = async (countryName: string) => {
     setLoadingHolidays(true);
     try {
       const calendarId = COUNTRY_CALENDAR_IDS[countryName];
-      
+
       if (!calendarId) {
         console.log(`No calendar found for ${countryName}`);
         setHolidays([]);
@@ -146,7 +248,6 @@ export default function CalendarScreen({ navigation }: any) {
     }
   };
 
-  // Delete Event
   const handleDeleteEvent = async (eventId: string) => {
     Alert.alert(
       'Delete Event',
@@ -174,18 +275,20 @@ export default function CalendarScreen({ navigation }: any) {
     );
   };
 
-  //share Event
   const handleShareEvent = (event: any) => {
     Alert.alert('Share', `Sharing: ${event.title}`);
     setMenuVisible(null);
   };
+  useEffect(() => {
+    if (!selectedDate || holidays.length === 0) return;
+    setShowMonthEvents(false);
+  }, [selectedDate, holidays]);
 
-  // Reload events when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       loadEvents();
       loadFirstDay();
-      loadSelectedCountry(); // Reload holidays when returning to screen
+      loadSelectedCountry();
     }, [])
   );
 
@@ -199,7 +302,7 @@ export default function CalendarScreen({ navigation }: any) {
       const day = await AsyncStorage.getItem('firstDayOfWeek');
       if (day) {
         const newFirstDay = parseInt(day);
-        console.log('📅 Calendar - Loading first day:', newFirstDay);
+        console.log('Calendar - Loading first day:', newFirstDay);
         setFirstDayOfWeek(newFirstDay);
         setRefreshKey(prev => prev + 1);
 
@@ -213,36 +316,87 @@ export default function CalendarScreen({ navigation }: any) {
 
   const getMonthEvents = () => {
     const { month, year } = currentMonth;
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
 
-    // Convert month-year → "YYYY-MM"
-    const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+    const monthEvents = events.filter((e) => {
+      const start = new Date(e.startDate);
+      if (e.allDay) {
+        return start <= lastDay;
+      }
+      const end = new Date(e.endDate);
+      return (start <= lastDay && end >= firstDay);
+    });
 
-    // Events in this month
-    const userEvents = events.filter((e) => e.date.startsWith(monthPrefix));
-
-    // Holidays in this month
     const monthHolidays = holidays
-      .filter((h) => h.date.startsWith(monthPrefix))
-      .map((h) => ({
-        id: `holiday-${h.date}`,
+      .filter((h) => h.date.startsWith(`${year}-${String(month).padStart(2, "0")}`))
+      .map((h, index) => ({
+        id: `holiday-${h.date}-${index}`,
         title: h.name,
         date: h.date,
         allDay: true,
         isHoliday: true,
       }));
 
-    return [...monthHolidays, ...userEvents];
+    return [...monthHolidays, ...monthEvents];
   };
 
   const getMarkedDates = () => {
     const marked: any = {};
+    const eventDotsByDate: any = {};
 
     events.forEach((event) => {
-      marked[event.date] = { marked: true, dotColor: colors.primary };
+      let start = new Date(event.startDate);
+
+      if (event.allDay) {
+        const today = new Date();
+        const futureDate = new Date(today.getFullYear() + 10, 11, 31);
+        let current = new Date(start);
+
+        while (current <= futureDate) {
+          const dateString = current.toISOString().split("T")[0];
+
+          if (!eventDotsByDate[dateString]) {
+            eventDotsByDate[dateString] = [];
+          }
+          const eventColor = event.color || '#0267FF';
+          eventDotsByDate[dateString].push(eventColor);
+
+          current.setDate(current.getDate() + 1);
+        }
+      } else {
+        let end = new Date(event.endDate);
+        let current = new Date(start);
+
+        while (current <= end) {
+          const dateString = current.toISOString().split("T")[0];
+
+          if (!eventDotsByDate[dateString]) {
+            eventDotsByDate[dateString] = [];
+          }
+          const eventColor = event.color || '#0267FF';
+          eventDotsByDate[dateString].push(eventColor);
+
+          current.setDate(current.getDate() + 1);
+        }
+      }
+    });
+    holidays.forEach((h) => {
+      if (!marked[h.date]) {
+        marked[h.date] = { marked: true, dots: [{ color: "#FF5252" }] };
+      }
     });
 
-    holidays.forEach((h) => {
-      marked[h.date] = { marked: true, dotColor: colors.primary };
+    Object.keys(eventDotsByDate).forEach((dateString) => {
+      const eventColors = eventDotsByDate[dateString];
+      const firstEventColor = eventColors[0];
+      if (!marked[dateString]) {
+        marked[dateString] = { marked: true, dots: [{ color: firstEventColor }] };
+      } else {
+        if (marked[dateString].dots && marked[dateString].dots.length < 2) {
+          marked[dateString].dots.push({ color: firstEventColor });
+        }
+      }
     });
 
     if (selectedDate) {
@@ -255,13 +409,36 @@ export default function CalendarScreen({ navigation }: any) {
 
     return marked;
   };
-
   const getTodayEvents = () => {
-    const userEvents = events.filter((e) => e.date === selectedDate);
+    const selected = selectedDate;
+    const selectedD = new Date(selected);
+
+    const userEvents = events.filter((e) => {
+      const start = new Date(e.startDate);
+      if (e.allDay) {
+        return selectedD >= start;
+      }
+      const end = new Date(e.endDate);
+      return selectedD >= start && selectedD <= end;
+    });
+
+    // const todayHolidays = holidays
+    //   .filter((h) => h.date === selected)
+    //   .map((h, index) => ({
+    //     id: `holiday-${h.date}-${index}`,
+    //     title: h.name,
+    //     date: h.date,
+    //     allDay: true,
+    //     isHoliday: true,
+    //   }));
+
+    // return [...todayHolidays, ...userEvents];
     const todayHolidays = holidays
-      .filter((h) => h.date === selectedDate)
-      .map((h) => ({
-        id: `holiday-${h.date}`,
+      .filter((h) => {
+        return h.date === selected;
+      })
+      .map((h, index) => ({
+        id: `holiday-${h.date}-${index}`,
         title: h.name,
         date: h.date,
         allDay: true,
@@ -270,18 +447,49 @@ export default function CalendarScreen({ navigation }: any) {
     return [...todayHolidays, ...userEvents];
   };
 
+  const handleEditEvent = (event: any) => {
+    setMenuVisible(null);
+
+    if (event.isHoliday) {
+      router.push({
+        pathname: '/holidayDetails',
+        params: {
+          title: event.title,
+          date: event.date,
+          alert: event.alert || "All-day",
+        }
+      });
+      return;
+    }
+    router.push({
+      pathname: '/editEvent',
+      params: {
+        eventId: event.id,
+        title: event.title || '',
+        description: event.description || '',
+        startDate: event.startDate || event.date,
+        endDate: event.endDate || event.date,
+        startTime: event.startTime || '12:00 PM',
+        endTime: event.endTime || '01:00 PM',
+        allDay: String(event.allDay || false),
+        repeat: event.repeat || 'Does not repeat',
+        reminders: JSON.stringify(event.reminders || ['At a time of event']),
+      }
+    });
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView>
+      {/* STICKY CALENDAR HEADER */}
+      <View style={[styles.calendarContainer, { backgroundColor: colors.background }]}>
         <Calendar
-          key={`${theme}-${firstDayOfWeek}-${refreshKey}`}
+          key={`${theme}-${firstDayOfWeek}-${refreshKey}-${i18n.language}`}
           firstDay={firstDayOfWeek}
           current={selectedDate}
           onDayPress={(day) => {
             setSelectedDate(day.dateString);
             setShowMonthEvents(false);
           }}
-
           markedDates={getMarkedDates()}
           onMonthChange={(month) => {
             setCurrentMonth({
@@ -309,32 +517,118 @@ export default function CalendarScreen({ navigation }: any) {
             disabledArrowColor: colors.textTertiary,
             monthTextColor: colors.textPrimary,
             indicatorColor: colors.primary,
-            textDayFontFamily: 'System',
-            textMonthFontFamily: 'System',
-            textDayHeaderFontFamily: 'System',
-            textDayFontWeight: '400',
-            textMonthFontWeight: 'bold',
-            textDayHeaderFontWeight: '600',
-            textDayFontSize: 14,
-            textMonthFontSize: 16,
-            textDayHeaderFontSize: 12,
+            'stylesheet.day.basic': {
+              base: {
+                width: 32,
+                height: 32,
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+              text: {
+                marginTop: 4,
+                fontSize: 16,
+                fontFamily: 'System',
+                fontWeight: '300',
+                color: colors.textPrimary,
+              },
+              selected: {
+                backgroundColor: colors.primary,
+                borderRadius: 16,
+              },
+              today: {
+                backgroundColor: 'transparent',
+              },
+              todayText: {
+                color: colors.primary,
+                fontWeight: 'bold',
+              },
+              sunday: {
+                color: '#FF5252',
+              },
+            },
+          }}
+          dayComponent={({ date, state, marking }: any) => {
+            const isSunday = new Date(date.dateString).getDay() === 0;
+            const isSelected = date.dateString === selectedDate;
+            const isToday = date.dateString === new Date().toISOString().split('T')[0];
+
+            return (
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedDate(date.dateString);
+                  setShowMonthEvents(false);
+                }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isSelected ? colors.primary : 'transparent',
+                  borderRadius: 16,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    color: isSelected
+                      ? '#ffffff'
+                      : state === 'disabled'
+                        ? colors.textTertiary
+                        : isSunday
+                          ? '#FF5252'
+                          : isToday
+                            ? colors.primary
+                            : colors.textPrimary,
+                    fontWeight: isToday ? 'bold' : '400',
+                  }}
+                >
+                  {date.day}
+                </Text>
+                {marking?.dots && marking.dots.length > 0 && (
+                  <View style={{ flexDirection: "row", position: "absolute", bottom: 3 }}>
+                    {marking.dots.map((dot, index) => (
+                      <View
+                        key={index}
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: isSelected ? '#ffffff' : dot.color,
+                          marginHorizontal: 1,
+                        }}
+                      />
+                    ))}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
           }}
         />
+      </View>
 
-        {/* EVENT LIST */}
+      {/* SCROLLABLE EVENT LIST */}
+      <ScrollView style={styles.eventsScrollView}>
         <View style={[styles.eventsList, { backgroundColor: colors.background }]}>
           {(showMonthEvents ? getMonthEvents() : getTodayEvents()).length > 0 ? (
             (showMonthEvents ? getMonthEvents() : getTodayEvents()).map((event, index) => (
-              <View key={event.id} style={{ marginBottom: 12 }}>
+              <View key={`${event.id}-${index}`} style={{ marginBottom: 12 }}>
                 <TouchableOpacity
                   style={[styles.eventCard, { backgroundColor: colors.cardBackground }]}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.eventDateBar, { backgroundColor: event.isHoliday ? '#FF6B6B' : colors.primary }]} />
-
+                  <View
+                    style={[
+                      styles.eventDateBar,
+                      {
+                        backgroundColor: event.isHoliday
+                          ? '#FF6B6B'
+                          : event.color || colors.primary,
+                      },
+                    ]}
+                  />
                   <View style={styles.eventContent}>
                     <Text style={[styles.eventTime, { color: colors.primary }]}>
-                      {event.date}
+                      {selectedDate}
                     </Text>
 
                     <Text style={[styles.eventTitle, { color: colors.textPrimary }]}>
@@ -342,14 +636,13 @@ export default function CalendarScreen({ navigation }: any) {
                     </Text>
 
                     <Text style={[styles.eventTime, { color: colors.textTertiary }]}>
-                      {event.isHoliday ? "All-day" : `${event.startTime} - ${event.endTime}`}
+                      {event.isHoliday ? t('all_day') : `${event.startTime} - ${event.endTime}`}
                     </Text>
                   </View>
 
-                  {/* 3 DOTS MENU - TOP RIGHT */}
                   <View style={styles.eventMenuContainer}>
                     <TouchableOpacity
-                      onPress={() => setMenuVisible(menuVisible === event.id ? null : event.id)}
+                      onPress={() => setMenuVisible(menuVisible === `${event.id}-${index}` ? null : `${event.id}-${index}`)}
                       style={styles.menuButton}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
@@ -358,89 +651,91 @@ export default function CalendarScreen({ navigation }: any) {
                   </View>
                 </TouchableOpacity>
 
-                {/* DROPDOWN MENU - CARD KE BAHAR */}
-                {menuVisible === event.id && (
+                {menuVisible === `${event.id}-${index}` && (
                   <View style={[styles.dropdownMenu, { backgroundColor: colors.cardBackground }]}>
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={() => {
-                        setMenuVisible(null);
-
-                        if (event.isHoliday) {
-                          router.push({
-                            pathname: '/holidayDetails',
-                            params: {
-                              title: event.title,
-                              date: event.date,
-                              alert: event.alert || "All-day",
-                            }
-                          });
-                          return;
-                        }
-
-                        // OPEN NORMAL EVENT EDIT SCREEN
-                        router.push({
-                          pathname: '/editEvent',
-                          params: {
-                            eventId: event.id,
-                            title: event.title,
-                            description: event.description,
-                            startDate: event.startDate,
-                            endDate: event.endDate,
-                            startTime: event.startTime,
-                            endTime: event.endTime,
-                            allDay: event.allDay.toString(),
-                            repeat: event.repeat,
-                            reminders: JSON.stringify(event.reminders),
-                          }
-                        });
-                      }}
+                      onPress={() => handleEditEvent(event)}
                     >
                       <Feather name="edit-2" size={18} color="#FF5252" />
-                      <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Edit</Text>
+                      <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t("edit")}</Text>
                     </TouchableOpacity>
 
-
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleDeleteEvent(event.id)}
-                    >
-                      <Feather name="trash-2" size={18} color="#FF5252" />
-                      <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Delete</Text>
-                    </TouchableOpacity>
+                    {!event.isHoliday && (
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => handleDeleteEvent(event.id)}
+                      >
+                        <Feather name="trash-2" size={18} color="#FF5252" />
+                        <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>
+                          {t("delete")}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
 
                     <TouchableOpacity
                       style={styles.menuItem}
                       onPress={() => handleShareEvent(event)}
                     >
                       <Feather name="share-2" size={18} color="#FF5252" />
-                      <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Share</Text>
+                      <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t("share")}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
               </View>
             ))
           ) : (
-            <Text style={[styles.noDataText, { color: colors.textTertiary }]}>
-              {showMonthEvents ? 'No events this month' : 'No events for this date'}
-            </Text>
+            <View style={{ alignItems: "center", paddingVertical: 40 }}>
+              <Image
+                source={
+                  theme
+                    ? require("../../assets/images/dark-no-event.png")
+                    : require("../../assets/images/no-events.png")
+                }
+                style={{ width: 140, height: 140, marginBottom: 12, opacity: 0.8 }}
+                resizeMode="contain"
+              />
+              <Text
+                style={[
+                  styles.noDataText,
+                  { color: colors.textTertiary, fontSize: 16 }
+                ]}
+              >
+                {t("no_event_yet")}
+              </Text>
+            </View>
           )}
         </View>
       </ScrollView>
 
-      {/* FAB Button - Navigate to AddEvent Screen */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={() => router.push('/addEvent')}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+      {/* FAB BUTTON */}
+      <View style={{ position: "absolute", right: 16, bottom: 80 }}>
+        <Animated.View
+          style={[
+            styles.pulseRing,
+            pulseStyle,
+            { backgroundColor: colors.primary },
+          ]}
+        />
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          onPress={() => router.push("/addEvent")}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  calendarContainer: {
+  },
+  eventsScrollView: {
     flex: 1,
   },
   eventsList: {
@@ -484,24 +779,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 32,
   },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 80,
+  pulseRing: {
+    position: "absolute",
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
   fabText: {
-    color: '#FFFFFF',
     fontSize: 32,
+    color: '#FFFFFF',
     fontWeight: '300',
   },
   eventMenuContainer: {

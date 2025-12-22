@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
     ScrollView,
@@ -21,50 +22,50 @@ interface ChallengeOption {
 const eatChallenges: ChallengeOption[] = [
   {
     id: 'family',
-    title: 'Talk with my family',
-    subtitle: 'It builds a family relationship and family members.',
+    title: 'talk_with_family',
+    subtitle: 'it_build_relationship',
     icon: 'account-voice',
   },
   {
     id: 'reconnect',
-    title: 'Reconnect with old friends',
-    subtitle: 'You were a part of their lives at one point',
+    title: 'reconnect_old_friends',
+    subtitle: 'you_were_lives_point',
     icon: 'account-multiple-check',
   },
   {
     id: 'involved',
-    title: 'Get involved in a community',
-    subtitle: 'Be proactive. Share your voice and opinions',
+    title: 'get_involved_community',
+    subtitle: 'be_proactive_opinions',
     icon: 'account-group',
   },
   {
     id: 'travel',
-    title: 'Travel',
-    subtitle: 'Improves your understanding of other cultures.',
+    title: 'travel',
+    subtitle: 'improves_understanding',
     icon: 'airplane',
   },
   {
     id: 'animals',
-    title: 'Save animals',
-    subtitle: 'Keep them safe at home',
+    title: 'save_animals',
+    subtitle: 'keep_them_safe',
     icon: 'paw',
   },
   {
     id: 'care',
-    title: 'Care for others',
-    subtitle: 'Helps to develop empathy and the ability to connect',
+    title: 'care_for_others',
+    subtitle: 'helps_develop_ability',
     icon: 'hand-heart',
   },
   {
     id: 'phone',
-    title: 'Make a phone call',
-    subtitle: 'Show your care to others',
+    title: 'make_phone_call',
+    subtitle: 'show_care_others',
     icon: 'phone',
   },
   {
     id: 'Value',
-    title: 'Add Value',
-    subtitle: 'Help others, even in small ways',
+    title: 'add_value',
+    subtitle: 'help_others_ways',
     icon: 'plus-circle',
   },
 ];
@@ -72,6 +73,8 @@ const eatChallenges: ChallengeOption[] = [
 
 export default function EatHealthyScreen() {
     const router = useRouter();
+    const { from } = useLocalSearchParams();
+    const { t } = useTranslation();
     const { theme, colors } = useTheme();
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
@@ -85,20 +88,37 @@ export default function EatHealthyScreen() {
         });
     };
 
+    const handleBackPress = async () => {
+        try {
+            if (from === "challenge/connect") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        } catch (error) {
+            console.error("Error showing back ad:", error);
+            if (from === "challenge/connect") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.leftContainer}>
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBackPress}
                         style={styles.backButton}
                     >
                         <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
 
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Connect with others
+                         {t("connect_with_others")} 
                     </Text>
                 </View>
             </View>
@@ -121,14 +141,13 @@ export default function EatHealthyScreen() {
                             </View>
                             <View style={styles.textContainer}>
                                 <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
-                                    {challenge.title}
+                                    {t(challenge.title)}
                                 </Text>
                                 <Text style={[styles.challengeSubtitle, { color: colors.textSecondary }]}>
-                                    {challenge.subtitle}
+                                    {t(challenge.subtitle)}
                                 </Text>
                             </View>
                         </TouchableOpacity>
-
                     ))}
                 </View>
             </ScrollView>
@@ -146,8 +165,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        // borderBottomWidth: 1,
-        // borderBottomColor: '#2a2a2a',
     },
     leftContainer: {
         flexDirection: 'row',
@@ -179,10 +196,7 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     iconContainer: {
-        // width: 48,
-        // height: 48,
         borderRadius: 24,
-        // backgroundColor: '#f5f5f5',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 16,

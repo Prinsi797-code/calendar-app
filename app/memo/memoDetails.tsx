@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
     Alert,
     Linking,
@@ -28,6 +29,7 @@ interface Memo {
 export default function MemoDetailsScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { t } = useTranslation();
     const { colors } = useTheme();
     const [memo, setMemo] = useState<Memo | null>(null);
 
@@ -54,15 +56,15 @@ export default function MemoDetailsScreen() {
 
     const handleDelete = () => {
         Alert.alert(
-            'Delete Memo',
-            'Are you sure you want to delete this memo?',
+            t('delete_memo_title'),
+            t('delete_memo_message'),
             [
                 {
-                    text: 'Cancel',
+                    text: t('cancel'),
                     style: 'cancel',
                 },
                 {
-                    text: 'Delete',
+                    text: t('delete'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -138,7 +140,7 @@ export default function MemoDetailsScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            {/* <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                 </TouchableOpacity>
@@ -157,7 +159,29 @@ export default function MemoDetailsScreen() {
                         <Feather name="trash-2" size={20}/>
                     </TouchableOpacity>
                 </View>
+            </View> */}
+
+            <View style={[styles.header]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("memo_details")}</Text>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity
+                        onPress={handleEdit}
+                        style={styles.headerButton}
+                    >
+                        <Feather name="edit" size={20} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleDelete}
+                        style={styles.headerButton}
+                    >
+                        <Feather name="trash-2" size={20} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                </View>
             </View>
+
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Title Section */}
@@ -188,7 +212,7 @@ export default function MemoDetailsScreen() {
                                     <Feather name="map-pin" size={18} color="#FF9800" />
                                 </View>
                                 <View style={styles.detailTextContainer}>
-                                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Location</Text>
+                                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{t('location')}</Text>
                                     <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
                                         {memo.location}
                                     </Text>
@@ -237,7 +261,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderBottomWidth: 1,
     },
     backButton: {
         padding: 4,

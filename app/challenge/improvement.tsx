@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
     ScrollView,
@@ -19,70 +20,72 @@ interface ChallengeOption {
 }
 
 const eatChallenges: ChallengeOption[] = [
-  {
-    id: 'languages',
-    title: 'Learn new languages',
-    subtitle: 'Open up a world of job opportunities',
-    icon: 'translate',
-  },
-  {
-    id: 'workload',
-    title: 'Manage workload',
-    subtitle: 'Provide a better quality of work',
-    icon: 'account-clock',
-  },
-  {
-    id: 'workAboard',
-    title: 'Work abroad',
-    subtitle: 'Learn a new skill',
-    icon: 'briefcase-account',
-  },
-  {
-    id: 'skill',
-    title: 'Learn a new skill',
-    subtitle: 'It increases your adaptability',
-    icon: 'lightbulb-on',
-  },
-  {
-    id: 'deadline',
-    title: 'Get things done before deadline',
-    subtitle: 'It will help generate more motivation',
-    icon: 'calendar-clock',
-  },
-  {
-    id: 'instrument',
-    title: 'Learn to play an instrument',
-    subtitle: 'It makes you creative',
-    icon: 'guitar-acoustic',
-  },
-  {
-    id: 'daily',
-    title: 'Make daily to-do list',
-    subtitle: 'Break goals into action points',
-    icon: 'format-list-checkbox',
-  },
-  {
-    id: 'expectations',
-    title: 'Stabilize expectations',
-    subtitle: 'Help others, even in small ways',
-    icon: 'target',
-  },
-  {
-    id: 'eliminate',
-    title: 'Eliminate distractions',
-    subtitle: 'Improve your concentration',
-    icon: 'eye-off',
-  },
-  {
-    id: 'Refresh',
-    title: 'Refresh your mind',
-    subtitle: 'Decrease anxiety and depression',
-    icon: 'refresh-circle',
-  },
+    {
+        id: 'languages',
+        title: 'learn_mew_languages',
+        subtitle: 'open_up_worls_opportunities',
+        icon: 'translate',
+    },
+    {
+        id: 'workload',
+        title: 'manage_workload',
+        subtitle: 'provide_better',
+        icon: 'account-clock',
+    },
+    {
+        id: 'workAboard',
+        title: 'work_abroad',
+        subtitle: 'it_good_personal',
+        icon: 'briefcase-account',
+    },
+    {
+        id: 'skill',
+        title: 'learn_new_skill',
+        subtitle: 'it_increases_adaptability',
+        icon: 'lightbulb-on',
+    },
+    {
+        id: 'deadline',
+        title: 'get_things_done',
+        subtitle: 'it_will_help_generate',
+        icon: 'calendar-clock',
+    },
+    {
+        id: 'instrument',
+        title: 'learn_play_instrument',
+        subtitle: 'it_makes_creative',
+        icon: 'guitar-acoustic',
+    },
+    {
+        id: 'daily',
+        title: 'make_daily_list',
+        subtitle: 'break_goals_points',
+        icon: 'format-list-checkbox',
+    },
+    {
+        id: 'expectations',
+        title: 'stabilize_exppectation',
+        subtitle: 'help_others_small',
+        icon: 'target',
+    },
+    {
+        id: 'eliminate',
+        title: 'eliminate_distractions',
+        subtitle: 'improve_concentration',
+        icon: 'eye-off',
+    },
+    {
+        id: 'Refresh',
+        title: 'refresh_your_mind',
+        subtitle: 'decrease_anxiety_depression',
+        icon: 'refresh-circle',
+    },
 ];
 
 export default function EatHealthyScreen() {
     const router = useRouter();
+    const { from } = useLocalSearchParams();
+    const { t } = useTranslation();
     const { theme, colors } = useTheme();
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
@@ -96,20 +99,37 @@ export default function EatHealthyScreen() {
         });
     };
 
+    const handleBackPress = async () => {
+        try {
+            if (from === "challenge/improvement") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        } catch (error) {
+            console.error("Error showing back ad:", error);
+            if (from === "challenge/improvement") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.leftContainer}>
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBackPress}
                         style={styles.backButton}
-                        >
+                    >
                         <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
 
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Self improvement
+                        {t("self_improvement")}
                     </Text>
                 </View>
             </View>
@@ -132,10 +152,10 @@ export default function EatHealthyScreen() {
                             </View>
                             <View style={styles.textContainer}>
                                 <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
-                                    {challenge.title}
+                                    {t(challenge.title)}
                                 </Text>
                                 <Text style={[styles.challengeSubtitle, { color: colors.textSecondary }]}>
-                                    {challenge.subtitle}
+                                    {t(challenge.subtitle)}
                                 </Text>
                             </View>
                         </TouchableOpacity>

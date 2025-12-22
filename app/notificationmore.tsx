@@ -1,9 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from "react-i18next";
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import NotificationService from '../services/NotificationService';
 
 const STORAGE_KEYS = {
   OTHER: 'notification_other',
@@ -15,6 +17,8 @@ const STORAGE_KEYS = {
 
 export default function NotificationMore() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const { from } = useLocalSearchParams();
   const { theme, colors } = useTheme();
 
   const [notifications, setNotifications] = useState({
@@ -25,7 +29,6 @@ export default function NotificationMore() {
     diary: true
   });
 
-  // Load saved notification preferences
   useEffect(() => {
     loadNotificationSettings();
   }, []);
@@ -39,7 +42,6 @@ export default function NotificationMore() {
         STORAGE_KEYS.MEMO,
         STORAGE_KEYS.DIARY
       ]);
-
       const settings = {
         other: savedSettings[0][1] !== null ? savedSettings[0][1] === 'true' : true,
         festival: savedSettings[1][1] !== null ? savedSettings[1][1] === 'true' : true,
@@ -47,7 +49,6 @@ export default function NotificationMore() {
         memo: savedSettings[3][1] !== null ? savedSettings[3][1] === 'true' : true,
         diary: savedSettings[4][1] !== null ? savedSettings[4][1] === 'true' : true,
       };
-
       setNotifications(settings);
     } catch (error) {
       console.error('Error loading notification settings:', error);
@@ -62,30 +63,103 @@ export default function NotificationMore() {
     }
   };
 
-  const toggleNotification = (type: keyof typeof notifications) => {
-    const newValue = !notifications[type];
-    setNotifications(prev => ({
-      ...prev,
-      [type]: newValue
-    }));
-
-    // Save to AsyncStorage
-    const storageKey = STORAGE_KEYS[type.toUpperCase() as keyof typeof STORAGE_KEYS];
-    saveNotificationSetting(storageKey, newValue);
+  const cancelNotificationsByType = async (type: string) => {
+    try {
+      const allScheduled = await NotificationService.getAllScheduledNotifications();
+      
+      for (const notification of allScheduled) {
+        if (notification.content.data?.type === type) {
+          await NotificationService.cancelNotification(notification.identifier);
+          console.log(`Cancelled ${type} notification:`, notification.identifier);
+        }
+      }
+      if (type === 'diary') {
+        const diaryData = await AsyncStorage.getItem('diarys');
+        if (diaryData) {
+          const diarys = JSON.parse(diaryData);
+          for (const diary of diarys) {
+            const notificationId = await AsyncStorage.getItem(`diary_${diary.id}_notification`);
+            if (notificationId) {
+              await NotificationService.cancelNotification(notificationId);
+              await AsyncStorage.removeItem(`diary_${diary.id}_notification`);
+            }
+          }
+        }
+      }
+      console.log(`✅ All ${type} notifications cancelled`);
+    } catch (error) {
+      console.error(`Error cancelling ${type} notifications:`, error);
+    }
   };
 
-  const NotificationItem = ({ 
-    title, 
-    description, 
-    type 
-  }: { 
-    title: string; 
-    description: string; 
+  const toggleNotification = async (type: keyof typeof notifications) => {
+    const newValue = !notifications[type];
+    
+    if (!newValue) {
+      Alert.alert(
+        t('confirm'),
+        `${t('turn_off')} ${type} ${t('notifications')}? ${t('all_scheduled_notifications_will_be_cancelled')}.`,
+        [
+          {
+            text: t('cancel'),
+            style: 'cancel'
+          },
+          {
+            text: t('ok'),
+            onPress: async () => {
+              setNotifications(prev => ({
+                ...prev,
+                [type]: newValue
+              }));
+              const storageKey = STORAGE_KEYS[type.toUpperCase() as keyof typeof STORAGE_KEYS];
+              await saveNotificationSetting(storageKey, newValue);
+              await cancelNotificationsByType(type);
+              
+              Alert.alert(t('success'), `${type} ${t('notifications_disabled')}`);
+            }
+          }
+        ]
+      );
+    } else {
+      setNotifications(prev => ({
+        ...prev,
+        [type]: newValue
+      }));
+      const storageKey = STORAGE_KEYS[type.toUpperCase() as keyof typeof STORAGE_KEYS];
+      await saveNotificationSetting(storageKey, newValue);
+      Alert.alert(t('success'), `${type} ${t('notifications_enabled')}`);
+    }
+  };
+
+  const handleBackPress = async () => {
+    try {
+      if (from === "notificationmore") {
+        router.replace("/settings");
+      } else {
+        router.replace("/settings");
+      }
+    } catch (error) {
+      console.error("Error showing back ad:", error);
+      if (from === "notificationmore") {
+        router.replace("/settings");
+      } else {
+        router.replace("/settings");
+      }
+    }
+  };
+
+  const NotificationItem = ({
+    title,
+    description,
+    type
+  }: {
+    title: string;
+    description: string;
     type: keyof typeof notifications;
   }) => (
-    <View style={[styles.notificationItem, { 
+    <View style={[styles.notificationItem, {
       backgroundColor: colors.cardBackground,
-      borderBottomColor: colors.border 
+      borderBottomColor: colors.border
     }]}>
       <View style={styles.notificationInfo}>
         <Text style={[styles.notificationTitle, { color: colors.textPrimary }]}>
@@ -98,9 +172,9 @@ export default function NotificationMore() {
       <Switch
         value={notifications[type]}
         onValueChange={() => toggleNotification(type)}
-        trackColor={{ 
-          false: colors.border, 
-          true: '#FF6B6B' 
+        trackColor={{
+          false: colors.border,
+          true: '#FF6B6B'
         }}
         thumbColor={colors.white}
         ios_backgroundColor={colors.border}
@@ -110,48 +184,41 @@ export default function NotificationMore() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { 
-        backgroundColor: colors.background
-      }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-          Notification
-        </Text>
-        <View style={styles.placeholder} />
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("notification")}</Text>
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.content}>
         <NotificationItem
-          title="Other notification"
-          description="Show notification for other events"
+          title={t("other_notification")}
+          description={t("show_notification_other")}
           type="other"
         />
-        
+
         <NotificationItem
-          title="Festival notification"
-          description="Show notification for festival events"
+          title={t("festival_notification")}
+          description={t("notification_festival")}
           type="festival"
         />
-        
+
         <NotificationItem
-          title="Challenge notification"
-          description="Show notification for challenge"
+          title={t("challenge_notification")}
+          description={t("show_notification_challenge")}
           type="challenge"
         />
-        
+
         <NotificationItem
-          title="Memo notification"
-          description="Show notification for memo"
+          title={t("memo_notification")}
+          description={t("show_notificatin_memo")}
           type="memo"
         />
-        
+
         <NotificationItem
-          title="Diary notification"
-          description="Show notification for diary"
+          title={t("diary_notification")}
+          description={t("show_notification_diary")}
           type="diary"
         />
       </ScrollView>
@@ -166,13 +233,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    // paddingVertical: 16,
     paddingTop: 60,
+    paddingBottom: 15,
+    paddingHorizontal: 16,
   },
   backButton: {
     padding: 4,
+    marginRight: 10,
   },
   headerTitle: {
     fontSize: 18,
@@ -184,6 +251,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingTop: 8,
+  },
+  backIcon: {
+    fontSize: 26,
+    fontWeight: "600"
   },
   notificationItem: {
     flexDirection: 'row',

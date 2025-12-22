@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
     ScrollView,
@@ -21,122 +22,122 @@ interface ChallengeOption {
 const eatChallenges: ChallengeOption[] = [
     {
         id: 'breakfast',
-        title: 'Have a great breakfast',
-        subtitle: 'Breakfast can help you be more alert',
+        title: 'have_great_breakfast',
+        subtitle: 'breakfast_can_help',
         icon: 'coffee-outline',
     },
     {
         id: 'lunch',
-        title: 'Packed lunches',
-        subtitle: 'Provide energy and nutrients to keep you going',
+        title: 'packed_lunches',
+        subtitle: 'provide_energy_and_nutrients',
         icon: 'food',
     },
     {
         id: 'fish',
-        title: 'Eat fish',
-        subtitle: 'An important source of Omega-3 fatty acids',
+        title: 'eat_fish',
+        subtitle: 'an_important_source',
         icon: 'fish',
     },
     {
         id: 'beef',
-        title: 'Eat beef',
-        subtitle: "It's an excellent source of iron, zinc, niacin",
+        title: 'eat_beef',
+        subtitle: "it_excellent_source",
         icon: 'food-steak',
     },
     {
         id: 'vitamins',
-        title: 'Take multivitamins daily',
-        subtitle: 'Reduce stress and anxiety',
+        title: 'take_multivitamins',
+        subtitle: 'refuce_stress_anxiety',
         icon: 'pill',
     },
     {
         id: 'cakes',
-        title: 'Have cakes',
-        subtitle: 'Helps with your digestion',
+        title: 'have_cakes',
+        subtitle: 'helps_with_digestion',
         icon: 'cake-variant',
     },
     {
         id: 'tea',
-        title: 'Daily cup of tea',
-        subtitle: 'Tea may reduce your risk of heart attack',
+        title: 'daily_cup_tea',
+        subtitle: 'tea_may_reduce_risk',
         icon: 'tea-outline',
     },
     {
         id: 'water',
-        title: 'Drink water',
-        subtitle: 'Regulate body temperature',
+        title: 'drink_water',
+        subtitle: 'regulate_body_temperature',
         icon: 'cup-water',
     },
     {
         id: 'beans',
-        title: 'Add beans to your day',
-        subtitle: 'Beans are high in amino acids',
+        title: 'add_beans_day',
+        subtitle: 'beans_are_high',
         icon: 'circle',
     },
     {
         id: 'apple',
-        title: 'An apple a day helps',
-        subtitle: 'Support a healthy immune system',
+        title: 'an_apple_day',
+        subtitle: 'support_healthy',
         icon: 'apple',
     },
     {
         id: 'bananas',
-        title: 'Eat bananas',
-        subtitle: 'Bananas are one of the best fruit',
+        title: 'eat_bananas',
+        subtitle: 'bananas_are_one_of',
         icon: 'fruit-pineapple',
     },
     {
         id: 'cheese',
-        title: 'Add cheese to your meals',
-        subtitle: 'You gain weight in a healthy way',
+        title: 'add_cheese_to_meals',
+        subtitle: 'you_gain_weiight_helthy',
         icon: 'cheese',
     },
     {
         id: 'clean',
-        title: 'Eat clean, eat green',
-        subtitle: 'Eat plenty every day',
+        title: 'eat_clean_eat',
+        subtitle: 'eat_plenty_every',
         icon: 'leaf',
     },
     {
         id: 'everyday',
-        title: 'A glass of fruit juice everyday',
-        subtitle: 'It`s a great way to add nutrients',
+        title: 'a_glass_of_fruit',
+        subtitle: 'it_great_way_add',
         icon: 'cup',
     },
     {
         id: 'egg',
-        title: 'Eat egg',
-        subtitle: 'Eggs provide the highest quality protein',
+        title: 'eat_egg',
+        subtitle: 'eggs_provide_the_highest',
         icon: 'egg',
     },
     {
         id: 'body',
-        title: 'Bread fuels your body',
-        subtitle: 'Bread contains fiber and protein',
+        title: 'bread_fuels_your_body',
+        subtitle: 'bread_contains_fiber',
         icon: 'bread-slice',
     },
     {
         id: 'carrots',
-        title: 'Eat carrots',
-        subtitle: 'Boosts eye health',
+        title: 'eat_carrots',
+        subtitle: 'boosts_eye_health',
         icon: 'food',
     },
     {
         id: 'avocados',
-        title: 'Have avocados regularly',
-        subtitle: 'It lowers the risk of heart disease',
+        title: 'have_avocados',
+        subtitle: 'it_lowers_the_risk',
         icon: 'fruit-grapes-outline',
     },
     {
         id: 'shrimps',
-        title: 'Eat Shrimps',
-        subtitle: 'Promote brain health with omega-3',
+        title: 'eat_shrimps',
+        subtitle: 'promote_brain_health',
         icon: 'fish',
     },
     {
         id: 'daily',
-        title: 'Mushrooms to your daily meals',
-        subtitle: 'Boosts immune system',
+        title: 'mushrooms_your_daliy',
+        subtitle: 'boosts_immune_system',
         icon: 'mushroom-outline',
     },
 ];
@@ -144,6 +145,8 @@ const eatChallenges: ChallengeOption[] = [
 
 export default function EatHealthyScreen() {
     const router = useRouter();
+    const { from } = useLocalSearchParams();
+    const { t } = useTranslation();
     const { theme, colors } = useTheme();
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
@@ -157,20 +160,37 @@ export default function EatHealthyScreen() {
         });
     };
 
+    const handleBackPress = async () => {
+        try {
+            if (from === "eat") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        } catch (error) {
+            console.error("Error showing back ad:", error);
+            if (from === "eat") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.leftContainer}>
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBackPress}
                         style={styles.backButton}
                     >
                         <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
 
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Eat healthy
+                        {t("eat_healthy")}
                     </Text>
                 </View>
             </View>
@@ -189,15 +209,15 @@ export default function EatHealthyScreen() {
                                     name={challenge.icon}
                                     size={24}
                                     color={colors.textPrimary}
-                                    
+
                                 />
                             </View>
                             <View style={styles.textContainer}>
                                 <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
-                                    {challenge.title}
+                                    {t(challenge.title)}
                                 </Text>
                                 <Text style={[styles.challengeSubtitle, { color: colors.textSecondary }]}>
-                                    {challenge.subtitle}
+                                    {t(challenge.subtitle)}
                                 </Text>
                             </View>
                         </TouchableOpacity>

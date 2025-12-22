@@ -1,9 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Animated,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -28,10 +30,34 @@ export default function DiaryScreen() {
   const router = useRouter();
   const { theme, colors } = useTheme();
   const today = new Date();
+  const navigation = useNavigation();
   const formattedDate = today.toLocaleDateString('en-GB');
+  const { t } = useTranslation();
   const [diary, setDiary] = useState<Diary[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      const parentNav = navigation.getParent();
+      if (parentNav) {
+        parentNav.setOptions({
+          headerShown: false,
+        });
+      }
+      loadDiary();
+      return () => {
+        if (parentNav) {
+          parentNav.setOptions({
+            headerShown: true,
+          });
+        }
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+      };
+    }, [navigation])
+  );
 
   const loadDiary = async () => {
     try {
@@ -47,6 +73,37 @@ export default function DiaryScreen() {
     }
   };
 
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const pulseStyle = {
+    transform: [
+      {
+        scale: pulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.6],
+        }),
+      },
+    ],
+    opacity: pulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.6, 0],
+    }),
+  };
   useFocusEffect(
     useCallback(() => {
       loadDiary();
@@ -99,15 +156,16 @@ export default function DiaryScreen() {
 
   const handleDelete = async () => {
     Alert.alert(
-      'Delete Diary',
-      `Are you sure you want to delete ${selectedIds.size} diary entr${selectedIds.size > 1 ? 'ies' : 'y'}?`,
+      t('delete_diary'),
+      t('are_sure_diary_entries', { count: selectedIds.size }),
+      // `Are you sure you want to delete ${selectedIds.size} diary entr${selectedIds.size > 1 ? 'ies' : 'y'}?`,
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -126,12 +184,10 @@ export default function DiaryScreen() {
       ]
     );
   };
-
   const handleCancelSelection = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
   };
-
   return (
     <>
       {selectionMode ? (
@@ -142,7 +198,7 @@ export default function DiaryScreen() {
             </TouchableOpacity>
 
             <Text style={[styles.selectionTitle, { color: colors.textPrimary }]}>
-              {selectedIds.size} Selected
+              {selectedIds.size} {t("selected")}
             </Text>
 
             <TouchableOpacity
@@ -191,7 +247,7 @@ export default function DiaryScreen() {
                       )}
                     </View>
 
-                    <View style={styles.radioContainer}>
+                    {/* <View style={styles.radioContainer}>
                       {isSelected ? (
                         <View style={[styles.radioSelected, { borderColor: '#FF6B6B' }]}>
                           <View style={styles.radioInner} />
@@ -199,7 +255,20 @@ export default function DiaryScreen() {
                       ) : (
                         <View style={[styles.radioUnselected, { borderColor: colors.textSecondary }]} />
                       )}
+                    </View> */}
+                    <View
+                      style={[
+                        styles.checkCircle,
+                        isSelected
+                          ? { backgroundColor: '#FF6B6B', borderColor: '#FF6B6B' }
+                          : { backgroundColor: 'transparent', borderColor: colors.textSecondary }
+                      ]}
+                    >
+                      {isSelected && (
+                        <Feather name="check" size={16} color="#fff" />
+                      )}
                     </View>
+
                   </TouchableOpacity>
                 );
               })}
@@ -208,16 +277,8 @@ export default function DiaryScreen() {
         </View>
       ) : (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-          {/* <View style={styles.headerContainer}>
-            <Text style={[styles.header, { color: colors.textPrimary }]}>Diary</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/diary/forgotpassword')}
-              style={styles.lockButton}
-            >
-              <Feather name="lock" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View> */}
-          <Text style={[styles.header, { color: colors.textPrimary }]}>Diary</Text>
+
+          <Text style={[styles.header, { color: colors.textPrimary }]}>{t("diary")}</Text>
 
           <ScrollView style={styles.scrollView}>
             <View style={styles.challengeList}>
@@ -280,12 +341,26 @@ export default function DiaryScreen() {
             </View>
           </ScrollView>
 
-          <TouchableOpacity
-            style={[styles.fab, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/diary/new')}
-          >
-            <Text style={styles.fabText}>+</Text>
-          </TouchableOpacity>
+          <View style={{ position: "absolute", right: 16, bottom: 80 }}>
+            {/* PULSE RING */}
+            <Animated.View
+              style={[
+                styles.pulseRing,
+                pulseStyle,
+                { backgroundColor: colors.primary },
+              ]}
+            />
+            {/* FAB */}
+            <TouchableOpacity
+              style={[styles.fab, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/diary/new')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.fabTextWrapper}>
+                <Text style={styles.fabText}>+</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
       )}
     </>
@@ -296,20 +371,23 @@ const styles = StyleSheet.create({
   fullScreenContainer: { flex: 1 },
   scrollView: { flex: 1, paddingHorizontal: 16 },
   header: { fontSize: 20, fontWeight: 'bold', marginTop: 16, marginBottom: 20, marginHorizontal: 16 },
-
   selectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 60,
+    paddingBottom: 16,
   },
   cancelButton: { padding: 4 },
-  selectionTitle: { fontSize: 18, fontWeight: '600', flex: 1, marginLeft: 12 },
-  deleteButton: { padding: 4 },
-
+  selectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    padding: 8,
+  },
   challengeList: { gap: 12, paddingBottom: 100 },
-
   challengeCard: {
     borderRadius: 12,
     padding: 16,
@@ -327,6 +405,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
   },
+  checkCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -365,7 +453,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   radioContainer: { marginLeft: 12 },
   radioSelected: {
     width: 24,
@@ -377,22 +464,31 @@ const styles = StyleSheet.create({
   },
   radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF6B6B' },
   radioUnselected: { width: 24, height: 24, borderRadius: 12, borderWidth: 2 },
-
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 80,
+  pulseRing: {
+    position: "absolute",
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
-
-  fabText: { color: '#fff', fontSize: 32, fontWeight: '300' },
+  fabTextWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabText: {
+    fontSize: 32,
+    color: '#FFFFFF',
+    fontWeight: '300',
+  },
 });

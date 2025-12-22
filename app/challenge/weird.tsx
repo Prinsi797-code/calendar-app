@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
     ScrollView,
@@ -21,68 +22,70 @@ interface ChallengeOption {
 const eatChallenges: ChallengeOption[] = [
   {
     id: 'job',
-    title: 'Find job opportunities',
-    subtitle: 'Develop yourself and career plan',
+    title: 'find_job_opportunities',
+    subtitle: 'develop_yourself',
     icon: 'briefcase-search',
   },
   {
     id: 'raise',
-    title: 'Raise a pet',
-    subtitle: 'Make you feel less alone',
+    title: 'raise_pet',
+    subtitle: 'make_you_feel',
     icon: 'paw',
   },
   {
     id: 'chess',
-    title: 'Play chess',
-    subtitle: 'Deepen focus and elevate creativity',
+    title: 'play_chess',
+    subtitle: 'deepen_focus_elevate',
     icon: 'chess-knight',
   },
   {
     id: 'party',
-    title: 'Have a party',
-    subtitle: 'Meet new and interesting people',
+    title: 'have_party',
+    subtitle: 'meet_new_interesting',
     icon: 'party-popper',
   },
   {
     id: 'painting',
-    title: 'Learn painting',
-    subtitle: 'Stimulates an optimistic attitude',
+    title: 'learn_painting',
+    subtitle: 'stimulates_attitude',
     icon: 'palette',
   },
   {
     id: 'trip',
-    title: 'Take a trip',
-    subtitle: 'Improves social & communication skills',
+    title: 'take_trip',
+    subtitle: 'improves_communication',
     icon: 'airplane',
   },
   {
     id: 'trees',
-    title: 'Plant trees',
-    subtitle: 'Trees cool the streets and the city',
+    title: 'plant_trees',
+    subtitle: 'trees_streets_city',
     icon: 'tree',
   },
   {
     id: 'friends',
-    title: 'Make new friends',
-    subtitle: 'Open yourself to new possibilities',
+    title: 'make_friends',
+    subtitle: 'open_possibilities',
     icon: 'account-group',
   },
   {
     id: 'house',
-    title: 'Renew your house',
-    subtitle: 'Make your house stand out',
+    title: 'renew_house',
+    subtitle: 'make_stand_out',
     icon: 'home-edit',
   },
   {
     id: 'talk',
-    title: 'Talk to yourself',
-    subtitle: 'Your brain works more efficiently',
+    title: 'talk_yourself',
+    subtitle: 'your_brain_efficiently',
     icon: 'chat-processing',
   },
 ];
 
 export default function EatHealthyScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
+    const { from } = useLocalSearchParams();
     const { theme, colors } = useTheme();
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
@@ -96,20 +99,37 @@ export default function EatHealthyScreen() {
         });
     };
 
+    const handleBackPress = async () => {
+        try {
+            if (from === "challenge/weird") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        } catch (error) {
+            console.error("Error showing back ad:", error);
+            if (from === "challenge/weird") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.leftContainer}>
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBackPress}
                         style={styles.backButton}
                     >
                         <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
 
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Be weird. Be you
+                        {t("be_weird_you")}
                     </Text>
                 </View>
             </View>
@@ -132,14 +152,13 @@ export default function EatHealthyScreen() {
                             </View>
                             <View style={styles.textContainer}>
                                 <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
-                                    {challenge.title}
+                                    {t(challenge.title)}
                                 </Text>
                                 <Text style={[styles.challengeSubtitle, { color: colors.textSecondary }]}>
-                                    {challenge.subtitle}
+                                    {t(challenge.subtitle)}
                                 </Text>
                             </View>
                         </TouchableOpacity>
-
                     ))}
                 </View>
             </ScrollView>

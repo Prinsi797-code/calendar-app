@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Modal,
     ScrollView,
@@ -14,38 +15,67 @@ import { Calendar } from "react-native-calendars";
 import { useTheme } from "../contexts/ThemeContext";
 
 export default function RepeatScreen() {
-    const { selectedRepeat } = useLocalSearchParams();
+    const allParams = useLocalSearchParams();
+    const { selectedRepeat, source, eventId } = allParams;
     const { colors } = useTheme();
-
+    const { t } = useTranslation();
     const [repeatType, setRepeatType] = useState(
-        selectedRepeat || "Does not repeat"
+        selectedRepeat || "does_not"
     );
-
-    const [durationType, setDurationType] = useState("Forever");
-
+    const router = useRouter();
+    const [durationType, setDurationType] = useState("forever");
     const [timesCount, setTimesCount] = useState("10");
     const [untilDate, setUntilDate] = useState(new Date());
     const [showDateModal, setShowDateModal] = useState(false);
 
+
     const repeatOptions = [
-        "Does not repeat",
-        "Everyday",
-        "Every week",
-        "Every month",
-        "Every year",
+        { key: "does_not", label: t("does_not_repeat") },
+        { key: "everyday", label: t("everyday") },
+        { key: "every_week", label: t("every_week") },
+        { key: "every_month", label: t("every_month") },
+        { key: "every_year", label: t("every_year") },
     ];
 
-    const durationOptions = ["Forever", "Until", "Specific number of times"];
+    const durationOptions = [
+        { key: "forever", label: t("forever") },
+        { key: "until", label: t("until") },
+        { key: "specific", label: t("specific") }
+    ];
+    const handleBack = () => {
+        if (source === "editEvent") {
+            router.replace({
+                pathname: "/editEvent",
+                params: { ...allParams }
+            });
+        } else {
+            router.replace({
+                pathname: "/addEvent",
+                params: { ...allParams }
+            });
+        }
+    };
 
     const saveAndGoBack = () => {
+        const targetPath = source === 'editEvent' ? '/editEvent' : '/addEvent';
+
+        const params: any = {
+            repeatValue: repeatType,
+            repeatDuration: durationType,
+            repeatCount: timesCount,
+            repeatUntil: formatDateForDisplay(untilDate),
+        };
+        if (source === 'editEvent' && eventId) {
+            params.eventId = eventId;
+            Object.keys(allParams).forEach(key => {
+                if (key !== 'repeatValue' && key !== 'source' && key !== 'selectedRepeat') {
+                    params[key] = allParams[key];
+                }
+            });
+        }
         router.replace({
-            pathname: "/addEvent",
-            params: {
-                repeatValue: repeatType,
-                repeatDuration: durationType,
-                repeatCount: timesCount,
-                repeatUntil: formatDateForDisplay(untilDate),
-            },
+            pathname: targetPath,
+            params: params,
         });
     };
 
@@ -62,101 +92,113 @@ export default function RepeatScreen() {
         return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     };
 
+    const getRepeatLabel = (key) => {
+        const found = repeatOptions.find(i => i.key === key);
+        return found ? found.label : "";
+    };
+
+    const getDurationLabel = (key) => {
+        const found = durationOptions.find(i => i.key === key);
+        return found ? found.label : "";
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-
-            {/* HEADER */}
-            <View style={[styles.header, { borderBottomColor: colors.border }]}>
-
-                {/* Back Arrow */}
-                <TouchableOpacity style={styles.headerLeft} onPress={() => router.back()}>
+            <View style={[styles.header]}>
+                {/* <TouchableOpacity style={styles.headerLeft} onPress={() => router.back()}>
                     <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                 </TouchableOpacity>
-
-                {/* Center Title */}
                 <View style={styles.headerCenter}>
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Repeat
+                        {t("repeat")}
+                    </Text>
+                </View> */}
+
+                <View style={styles.leftContainer}>
+                    <TouchableOpacity
+                        onPress={handleBack}
+                        style={styles.backButton}>
+                        <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                        {t("repeat")}
                     </Text>
                 </View>
 
-                {/* Save */}
                 <TouchableOpacity style={styles.headerRight} onPress={saveAndGoBack}>
                     <Feather name="check" size={24} color="#FF5252" />
                 </TouchableOpacity>
             </View>
 
             <ScrollView style={{ padding: 16 }}>
+                {repeatType !== "does_not" && (
+                    <Text style={[styles.smallText, { color: colors.textSecondary }]}>
+                        {t("this_event_will_repeat")} {getRepeatLabel(repeatType)?.toLowerCase()} {getDurationLabel(durationType)?.toLowerCase()}
+                    </Text>
+                )}
 
-                {/* Top Info */}
-                <Text style={[styles.smallText, { color: colors.textSecondary }]}>
-                    This event will repeat {repeatType} {durationType.toLowerCase()}
-                </Text>
-
-                {/* REPEAT OPTIONS */}
-                {repeatOptions.map((item) => (
+                {repeatOptions.map(item => (
                     <TouchableOpacity
-                        key={item}
+                        key={item.key}
                         style={[
                             styles.option,
                             { backgroundColor: colors.cardBackground },
                         ]}
-                        onPress={() => setRepeatType(item)}
+                        onPress={() => setRepeatType(item.key)}
                     >
                         <Text style={[styles.text, { color: colors.textPrimary }]}>
-                            {item}
+                            {item.label}
                         </Text>
 
                         <View
                             style={[
                                 styles.circle,
-                                repeatType === item && styles.circleSelected,
+                                repeatType === item.key && styles.circleSelected,
                             ]}
                         >
-                            {repeatType === item && (
+                            {repeatType === item.key && (
                                 <Feather name="check" size={14} color="#fff" />
                             )}
                         </View>
                     </TouchableOpacity>
                 ))}
 
-                {/* DURATION SECTION */}
-                {repeatType !== "Does not repeat" && (
+                {/* DURATION SECTION - Only show if repeat is NOT "does_not" */}
+                {repeatType !== "does_not" && (
                     <>
                         <Text
                             style={[styles.durationTitle, { color: colors.textSecondary }]}
-                        > Duration
+                        >
+                            {t("duration")}
                         </Text>
 
                         {durationOptions.map((item) => (
-                            <View key={item}>
+                            <View key={item.key}>
                                 <TouchableOpacity
                                     style={[
                                         styles.option,
                                         { backgroundColor: colors.cardBackground },
                                     ]}
                                     onPress={() => {
-                                        setDurationType(item);
+                                        setDurationType(item.key);
 
-                                        if (item === "Until") {
+                                        if (item.key === "until") {
                                             setShowDateModal(true);
                                         }
                                     }}
                                 >
                                     <View style={styles.optionLeft}>
                                         <Text style={[styles.text, { color: colors.textPrimary }]}>
-                                            {item}
+                                            {item.label}
                                         </Text>
 
-                                        {/* Show Date inline for Until option */}
-                                        {item === "Until" && durationType === "Until" && (
+                                        {item.key === "until" && durationType === "until" && (
                                             <Text style={[styles.subText, { color: colors.textSecondary }]}>
                                                 {formatDateForDisplay(untilDate)}
                                             </Text>
                                         )}
 
-                                        {/* Show Input inline for Specific number of times */}
-                                        {item === "Specific number of times" && durationType === "Specific number of times" && (
+                                        {item.key === "specific" && durationType === "specific" && (
                                             <View style={styles.inlineInputContainer}>
                                                 <TextInput
                                                     keyboardType="numeric"
@@ -172,7 +214,7 @@ export default function RepeatScreen() {
                                                     maxLength={3}
                                                 />
                                                 <Text style={[styles.timesText, { color: colors.textSecondary }]}>
-                                                    Times total
+                                                    {t("time_total")}
                                                 </Text>
                                             </View>
                                         )}
@@ -181,10 +223,10 @@ export default function RepeatScreen() {
                                     <View
                                         style={[
                                             styles.circle,
-                                            durationType === item && styles.circleSelected,
+                                            durationType === item.key && styles.circleSelected,
                                         ]}
                                     >
-                                        {durationType === item && (
+                                        {durationType === item.key && (
                                             <Feather name="check" size={14} color="#fff" />
                                         )}
                                     </View>
@@ -198,7 +240,7 @@ export default function RepeatScreen() {
             {/* DATE PICKER MODAL - Calendar Style */}
             <Modal transparent visible={showDateModal} animationType="fade">
                 <View style={styles.modalOverlay}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.modalBackdrop}
                         activeOpacity={1}
                         onPress={() => setShowDateModal(false)}
@@ -211,7 +253,7 @@ export default function RepeatScreen() {
                     >
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                                Select End Date
+                                {t("select_end_date")}
                             </Text>
                         </View>
 
@@ -242,20 +284,20 @@ export default function RepeatScreen() {
                         />
 
                         <View style={styles.modalActions}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={() => setShowDateModal(false)}
                                 style={styles.modalButton}
                             >
                                 <Text style={[styles.modalButtonText, { color: colors.textSecondary }]}>
-                                    CANCEL
+                                    {t("cancel")}
                                 </Text>
                             </TouchableOpacity>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={() => setShowDateModal(false)}
                                 style={styles.modalButton}
                             >
                                 <Text style={[styles.modalButtonText, { color: '#FF5252' }]}>
-                                    OK
+                                    {t("ok")}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -265,10 +307,8 @@ export default function RepeatScreen() {
         </View>
     );
 }
-
 const styles = StyleSheet.create({
     container: { flex: 1 },
-
     header: {
         paddingVertical: 15,
         paddingHorizontal: 20,
@@ -277,16 +317,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         position: "relative",
         marginTop: 50,
-        borderBottomWidth: 1,
     },
-
     headerLeft: { position: "absolute", left: 20 },
     headerRight: { position: "absolute", right: 20 },
-
     headerCenter: { justifyContent: "center", alignItems: "center" },
-
     headerTitle: { fontSize: 18, fontWeight: "600" },
-
     option: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -295,29 +330,23 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         alignItems: "center",
     },
-
     optionLeft: {
         flex: 1,
         marginRight: 10,
     },
-
     text: { fontSize: 16 },
-
     subText: {
         fontSize: 14,
         marginTop: 6,
     },
-
     smallText: { marginBottom: 15, fontSize: 13 },
-
-    durationTitle: { 
-        marginTop: 20, 
-        marginBottom: 10, 
-        fontSize: 12, 
+    durationTitle: {
+        marginTop: 20,
+        marginBottom: 10,
+        fontSize: 15,
         fontWeight: "600",
         letterSpacing: 0.5,
     },
-
     circle: {
         width: 22,
         height: 22,
@@ -327,16 +356,13 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-
     circleSelected: { backgroundColor: "#FF5252", borderColor: "#FF5252" },
-
     inlineInputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 8,
         gap: 8,
     },
-
     inlineInput: {
         borderWidth: 1,
         borderRadius: 6,
@@ -346,11 +372,18 @@ const styles = StyleSheet.create({
         minWidth: 60,
         textAlign: 'center',
     },
-
     timesText: {
         fontSize: 14,
     },
-
+    backButton: {
+        padding: 4,
+        marginRight: 10,
+    },
+    leftContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.5)",

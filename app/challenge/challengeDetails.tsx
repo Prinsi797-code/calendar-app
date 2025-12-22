@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   SafeAreaView,
@@ -28,6 +29,7 @@ export default function ChallengeDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { colors, theme } = useTheme();
+  const { t } = useTranslation();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
 
   const loadChallenge = async () => {
@@ -53,15 +55,15 @@ export default function ChallengeDetailsScreen() {
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Challenge',
-      'Are you sure you want to delete this challenge?',
+      t('delete_challenge_title'),
+      t('delete_challenge_message'),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -111,7 +113,7 @@ export default function ChallengeDetailsScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Feather name="arrow-left" size={24} style={{ color: colors.textPrimary }}/>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Challenge details</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("challenge_details")}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             onPress={() => router.push({
@@ -150,11 +152,11 @@ export default function ChallengeDetailsScreen() {
               <View style={styles.leftSide}>
                 <Feather name="repeat" size={20} color={colors.textSecondary} />
                 <Text style={[styles.detailLabel, { color: colors.textPrimary }]}>
-                  Repeat
+                  {t("repeat")}
                 </Text>
               </View>
               <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
-                {challenge.repeat}
+                {t(challenge.repeat)}
               </Text>
             </View>
           </View>
@@ -164,7 +166,7 @@ export default function ChallengeDetailsScreen() {
               <View style={styles.leftSide}>
                 <Feather name="calendar" size={20} color={colors.textSecondary} />
                 <Text style={[styles.detailLabel, { color: colors.textPrimary }]}>
-                  Start Date
+                  {t("start_date")}
                 </Text>
               </View>
               <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
@@ -178,7 +180,7 @@ export default function ChallengeDetailsScreen() {
               <View style={styles.leftSide}>
                 <Feather name="calendar" size={20} color={colors.textSecondary} />
                 <Text style={[styles.detailLabel, { color: colors.textPrimary }]}>
-                  End Date
+                  {t("end_date")}
                 </Text>
               </View>
               <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
@@ -192,7 +194,7 @@ export default function ChallengeDetailsScreen() {
               <View style={styles.leftSide}>
                 <Feather name="bell" size={20} color={colors.textSecondary} />
                 <Text style={[styles.detailLabel, { color: colors.textPrimary }]}>
-                  Reminder
+                  {t("reminder")}
                 </Text>
               </View>
               <Text style={[styles.detailValue, { color: colors.textPrimary }]}>

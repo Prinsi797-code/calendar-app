@@ -1,28 +1,52 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function ThemeMode() {
   const router = useRouter();
+  const { from } = useLocalSearchParams();
   const { theme, setTheme, colors } = useTheme();
+  const { t } = useTranslation();
 
   const handleThemeChange = (newTheme: 'light' | 'dark') => {
     setTheme(newTheme);
-    Alert.alert('Success', `${newTheme === 'light' ? 'Light' : 'Dark'} theme applied!`);
+    Alert.alert(
+      t("success"),
+      newTheme === "light"
+        ? t("light_theme_appleid")
+        : t("dark_theme_appleid")
+    );
   };
-
+  const handleBackPress = async () => {
+    try {
+      if (from === "notificationmore") {
+        router.replace("/settings");
+      } else {
+        router.replace("/settings");
+      }
+    } catch (error) {
+      console.error("Error showing back ad:", error);
+      if (from === "notificationmore") {
+        router.replace("/settings");
+      } else {
+        router.replace("/settings");
+      }
+    }
+  };
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
 
       {/* HEADER */}
-      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={[styles.backIcon, { color: colors.textPrimary }]}>←</Text>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+          <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+          {/* <Text style={[styles.backIcon, { color: colors.textPrimary }]}>←</Text> */}
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Theme Mode</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("theme_mode_title")}</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -40,7 +64,7 @@ export default function ThemeMode() {
               size={20}
               color={theme === 'light' ? colors.primary : colors.textPrimary}
             />
-            <Text style={[styles.themeText, { color: colors.textPrimary }]}>Light Theme</Text>
+            <Text style={[styles.themeText, { color: colors.textPrimary }]}>{t("light_theme")}</Text>
           </View>
 
           <View style={[
@@ -63,7 +87,7 @@ export default function ThemeMode() {
               size={20}
               color={theme === 'dark' ? colors.primary : colors.textPrimary}
             />
-            <Text style={[styles.themeText, { color: colors.textPrimary }]}>Dark Theme</Text>
+            <Text style={[styles.themeText, { color: colors.textPrimary }]}>{t("dark_theme")}</Text>
           </View>
 
           <View style={[
@@ -74,9 +98,7 @@ export default function ThemeMode() {
             {theme === 'dark' && <Text style={styles.checkmark}>✓</Text>}
           </View>
         </TouchableOpacity>
-
       </View>
-
     </View>
   );
 }
@@ -87,15 +109,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingBottom: 15,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 50,
-    borderBottomWidth: 1,
   },
-  backButton: { padding: 8 },
-  backIcon: { fontSize: 24 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', flex: 1, textAlign: 'center' },
+
+  backButton: {
+    padding: 4,
+    marginRight: 10,
+  },
+  backIcon: {
+    fontSize: 26,
+    fontWeight: "600"
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
   placeholder: { width: 40 },
 
   content: { flex: 1, padding: 16 },
@@ -104,7 +134,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: 10,
     borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
@@ -112,7 +142,7 @@ const styles = StyleSheet.create({
 
   themeInfo: { flexDirection: 'row', alignItems: 'center', gap: 16 },
 
-  themeText: { fontSize: 18, fontWeight: '600' },
+  themeText: { fontSize: 16, fontWeight: '500' },
 
   circle: {
     width: 30,

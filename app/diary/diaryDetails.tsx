@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
     Alert,
     Linking,
@@ -27,6 +28,7 @@ interface Diary {
 
 export default function DiaryDetailsScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const params = useLocalSearchParams();
     const { colors } = useTheme();
     const [diary, setDiary] = useState<Diary | null>(null);
@@ -54,15 +56,15 @@ export default function DiaryDetailsScreen() {
 
     const handleDelete = () => {
         Alert.alert(
-            'Delete Diary',
-            'Are you sure you want to delete this diary?',
+             t('delete_diary'),
+            t('are_sure_diary_entries'),
             [
                 {
-                    text: 'Cancel',
+                    text: t('cancel'),
                     style: 'cancel',
                 },
                 {
-                    text: 'Delete',
+                    text: t('delete'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -142,7 +144,7 @@ export default function DiaryDetailsScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Diary Details</Text>
+                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("diary_details")}</Text>
                 <View style={styles.headerActions}>
                     <TouchableOpacity
                         onPress={handleEdit}

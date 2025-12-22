@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FlatList,
   Image,
@@ -19,6 +20,7 @@ export default function Country({ navigation }: any) {
   const { colors } = useTheme();
   const [selected, setSelected] = useState<string[]>(["Afghanistan"]);
   const [search, setSearch] = useState("");
+  const { t } = useTranslation();
   const [showSearch, setShowSearch] = useState(false);
   const [filtered, setFiltered] = useState(COUNTRIES);
   const [isSearch, setIsSearch] = useState(false);
@@ -43,11 +45,11 @@ export default function Country({ navigation }: any) {
   };
 
   const saveCountries = () => {
-     const selectedCountry = selected[0]; // first selected country
-  router.push({
-    pathname: '/holidays',
-    params: { country: selectedCountry }
-  });
+    const selectedCountry = selected[0];
+    router.push({
+      pathname: '/holidays',
+      params: { country: selectedCountry }
+    });
     // router.back();
   };
 
@@ -75,10 +77,22 @@ export default function Country({ navigation }: any) {
       <View style={styles.header}>
         {!isSearch && (
           <>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            {/* <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Text style={[styles.backIcon, { color: colors.textPrimary }]}>←</Text>
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Select Country</Text>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("select_country")}</Text> */}
+
+            <View style={styles.leftContainer}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}>
+                <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                {t("select_country")}
+              </Text>
+            </View>
+
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <TouchableOpacity onPress={() => setIsSearch(true)} style={{ marginRight: 20 }}>
                 <Feather name="search" size={24} style={[{ color: colors.textPrimary }]} />
@@ -97,7 +111,7 @@ export default function Country({ navigation }: any) {
               <Feather name="x" size={28} style={[{ color: colors.textPrimary }]} />
             </TouchableOpacity>
             <TextInput
-              placeholder="Search"
+              placeholder={t("search")}
               placeholderTextColor="#888"
               value={search}
               onChangeText={setSearch}
@@ -185,6 +199,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginVertical: 10,
   },
+  leftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -193,7 +212,7 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   backButton: {
-    padding: 5,
+    padding: 4,
     marginRight: 10,
   },
 
@@ -204,9 +223,7 @@ const styles = StyleSheet.create({
 
   headerTitle: {
     fontSize: 18,
-    fontWeight: "500",
-    flex: 1,
-    marginLeft: 15,
+    fontWeight: '600',
   },
 
   searchHeader: {

@@ -1,15 +1,17 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Animated,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -27,32 +29,94 @@ interface memo {
 export default function MemoScreen() {
   const router = useRouter();
   const { theme, colors } = useTheme();
+  const navigation = useNavigation();
   const [memos, setMemos] = useState<memo[]>([]);
+  const { t } = useTranslation();
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMemos, setSelectedMemos] = useState<string[]>([]);
   const today = new Date();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const formattedDate = today.toLocaleDateString('en-GB');
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      const parentNav = navigation.getParent();
+      if (parentNav) {
+        parentNav.setOptions({
+          headerShown: false,
+        });
+      }
+      loadmemo();
+      return () => {
+        if (parentNav) {
+          parentNav.setOptions({
+            headerShown: true,
+          });
+        }
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+      };
+    }, [navigation])
+  );
 
   const loadmemo = async () => {
     try {
       const memoData = await AsyncStorage.getItem('memo');
+      console.log('🔄 Memo List Screen focused - Loading memos...');
+      console.log('📦 Raw memo data:', memoData);
+
       if (memoData) {
-        setMemos(JSON.parse(memoData));
+        const parsedMemos = JSON.parse(memoData);
+        console.log('✅ Parsed memos:', parsedMemos);
+        console.log('📊 Total memos:', parsedMemos.length);
+        setMemos(parsedMemos);
       } else {
+        console.log('⚠️ No memo data found!');
         setMemos([]);
       }
     } catch (error) {
-      console.error('Error loading memo:', error);
+      console.error('❌ Error loading memo:', error);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
       loadmemo();
-      setSelectionMode(false);
-      setSelectedMemos([]);
     }, [])
   );
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const pulseStyle = {
+    transform: [
+      {
+        scale: pulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.6],
+        }),
+      },
+    ],
+    opacity: pulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.6, 0],
+    }),
+  };
 
   const formatDate = (isoDate: string) => {
     const date = new Date(isoDate);
@@ -104,12 +168,12 @@ export default function MemoScreen() {
 
   const handleDeleteSelected = () => {
     Alert.alert(
-      'Delete Memos',
-      `Are you sure you want to delete ${selectedMemos.length} memo(s)?`,
+      t('delete_memo_title'),
+      t('delete_memo_message', { count: selectedMemos.length }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             const updated = memos.filter(m => !selectedMemos.includes(m.id));
@@ -123,19 +187,19 @@ export default function MemoScreen() {
     );
   };
 
+  console.log('🎨 Rendering MemoScreen with', memos.length, 'memos');
+
   return (
     <>
       {selectionMode ? (
         <View style={[styles.fullScreenContainer, { backgroundColor: colors.background }]}>
-
-          {/* Selection Header */}
           <View style={[styles.selectionHeader, { backgroundColor: colors.background }]}>
             <TouchableOpacity onPress={handleCancelSelection} style={styles.cancelButton}>
               <Feather name="x" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
 
             <Text style={[styles.selectionTitle, { color: colors.textPrimary }]}>
-              {selectedMemos.length} Selected
+              {selectedMemos.length} {t("selected")}
             </Text>
 
             <TouchableOpacity
@@ -187,13 +251,25 @@ export default function MemoScreen() {
                       </Text>
                     </View>
 
-                    <View style={styles.radioContainer}>
+                    {/* <View style={styles.radioContainer}>
                       {selectedMemos.includes(memo.id) ? (
                         <View style={[styles.radioSelected, { borderColor: '#FF6B6B' }]}>
                           <View style={styles.radioInner} />
                         </View>
                       ) : (
                         <View style={[styles.radioUnselected, { borderColor: colors.textSecondary }]} />
+                      )}
+                    </View> */}
+                    <View
+                      style={[
+                        styles.checkCircle,
+                        selectedMemos.includes(memo.id)
+                          ? { backgroundColor: '#FF6B6B', borderColor: '#FF6B6B' }
+                          : { backgroundColor: 'transparent', borderColor: colors.textSecondary }
+                      ]}
+                    >
+                      {selectedMemos.includes(memo.id) && (
+                        <Feather name="check" size={16} color="#fff" />
                       )}
                     </View>
 
@@ -202,11 +278,10 @@ export default function MemoScreen() {
               </View>
             </View>
           </ScrollView>
-
         </View>
       ) : (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-          <Text style={[styles.header, { color: colors.textPrimary }]}>Memo</Text>
+          <Text style={[styles.header, { color: colors.textPrimary }]}>{t("Memo")}</Text>
 
           <ScrollView style={styles.scrollView}>
             <View style={styles.memo}>
@@ -261,13 +336,24 @@ export default function MemoScreen() {
               </View>
             </View>
           </ScrollView>
-
-          <TouchableOpacity
-            style={[styles.fab, { backgroundColor: colors.primary }]}
-            onPress={() => router.push(`/memo/new?timestamp=${Date.now()}`)}
-          >
-            <Text style={styles.fabText}>+</Text>
-          </TouchableOpacity>
+          <View style={{ position: "absolute", right: 16, bottom: 80 }}>
+            <Animated.View
+              style={[
+                styles.pulseRing,
+                pulseStyle,
+                { backgroundColor: colors.primary },
+              ]}
+            />
+            <TouchableOpacity
+              style={[styles.fab, { backgroundColor: colors.primary }]}
+              onPress={() => router.push(`/memo/new?timestamp=${Date.now()}`)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.fabTextWrapper}>
+                <Text style={styles.fabText}>+</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
       )}
     </>
@@ -279,21 +365,24 @@ const styles = StyleSheet.create({
   fullScreenContainer: { flex: 1 },
   scrollView: { flex: 1, paddingHorizontal: 16 },
   header: { fontSize: 20, fontWeight: 'bold', marginTop: 16, marginBottom: 20, marginHorizontal: 16 },
-
   selectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 60,
+    paddingBottom: 16,
   },
   cancelButton: { padding: 4 },
-  selectionTitle: { fontSize: 18, fontWeight: '600', flex: 1, marginLeft: 12 },
-  deleteButton: { padding: 4 },
-
+  selectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    padding: 8,
+  },
   memo: { paddingBottom: 100 },
   challengeList: { gap: 12 },
-
   challengeCard: {
     borderRadius: 12,
     padding: 16,
@@ -303,10 +392,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     position: 'relative',
   },
-
   selectedCard: { opacity: 0.8 },
-
   defaultCard: {
+  },
+  checkCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
 
   leftLine: {
@@ -319,14 +415,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
   },
-
   selectedLeftLine: { backgroundColor: '#FF6B6B' },
-
   challengeContent: { flex: 1 },
   challengeTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
   memoDetails: { fontSize: 14, marginBottom: 4 },
   challengeDate: { fontSize: 13 },
-
   radioContainer: { marginLeft: 12 },
   radioSelected: {
     width: 24,
@@ -338,18 +431,31 @@ const styles = StyleSheet.create({
   },
   radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF6B6B' },
   radioUnselected: { width: 24, height: 24, borderRadius: 12, borderWidth: 2 },
-
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 80,
+  pulseRing: {
+    position: "absolute",
     width: 56,
     height: 56,
     borderRadius: 28,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  fabTextWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
   },
-
-  fabText: { color: '#fff', fontSize: 32, fontWeight: '300' },
+  fabText: {
+    fontSize: 32,
+    color: '#FFFFFF',
+    fontWeight: '300',
+  },
 });

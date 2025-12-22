@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
     ScrollView,
@@ -21,68 +22,62 @@ interface ChallengeOption {
 const eatChallenges: ChallengeOption[] = [
     {
         id: 'Tidy',
-        title: 'Tidy up',
-        subtitle: 'Get rid of your piles of mess',
+        title: 'tidy_up',
+        subtitle: 'get_rid_piles',
         icon: 'broom',
     },
     {
         id: 'exercises',
-        title: 'Do exercises',
-        subtitle: 'Feel more relaxed and sleep better',
+        title: 'do_exercises',
+        subtitle: 'feel_more_relaxed',
         icon: 'dumbbell',
     },
     {
         id: 'bed',
-        title: 'Make your bed',
-        subtitle: 'Improve your sleep quality',
+        title: 'make_your_bed',
+        subtitle: 'improve_your_quality',
         icon: 'bed-outline',
     },
     {
         id: 'running',
-        title: 'Go running',
-        subtitle: "Help maintain a healthy weight",
+        title: 'go_running',
+        subtitle: "help_maintain_weight",
         icon: 'run',
     },
     {
         id: 'walk',
-        title: 'Go for a walk',
-        subtitle: 'Stronger bones and improved balance',
-        icon: 'walk',
-    },
-    {
-        id: 'Gowalk',
-        title: 'Go for a walk',
-        subtitle: 'Stronger bones and improved balance',
+        title: 'go_for_walk',
+        subtitle: 'stronger_bones',
         icon: 'walk',
     },
     {
         id: 'join',
-        title: 'Join a yoga class',
-        subtitle: 'Improves strength, balance and flexibility',
+        title: 'join_yoga_class',
+        subtitle: 'improves_strength_flexibility',
         icon: 'yoga',
     },
     {
         id: 'cook',
-        title: 'Cook at home',
-        subtitle: 'It can make you a happier person',
+        title: 'cook_at_home',
+        subtitle: 'it_can_make_happier',
         icon: 'chef-hat',
     },
     {
         id: 'creatively',
-        title: 'Think creatively',
-        subtitle: 'Become a better problem solver',
+        title: 'think_creatively',
+        subtitle: 'become_better_problem',
         icon: 'lightbulb-on-outline',
     },
     {
         id: 'health',
-        title: 'Annual health check',
-        subtitle: 'Reduce pressure in your life',
+        title: 'annual_health_check',
+        subtitle: 'reduce_pressure_your_life',
         icon: 'stethoscope',
     },
     {
         id: 'hardbreak',
-        title: 'Break bad habits',
-        subtitle: 'You can establish a pattern for new habits',
+        title: 'break_bad_habits',
+        subtitle: 'establish_pattern_new_habits',
         icon: 'emoticon-sad-outline',
     },
 ];
@@ -90,6 +85,8 @@ const eatChallenges: ChallengeOption[] = [
 
 export default function EatHealthyScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
+    const { from } = useLocalSearchParams();
     const { theme, colors } = useTheme();
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
@@ -103,20 +100,37 @@ export default function EatHealthyScreen() {
         });
     };
 
+    const handleBackPress = async () => {
+        try {
+            if (from === "challenge/active") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        } catch (error) {
+            console.error("Error showing back ad:", error);
+            if (from === "challenge/active") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.leftContainer}>
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBackPress}
                         style={styles.backButton}
                     >
                         <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
 
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Be active my way
+                        {t("be_active_my")}
                     </Text>
                 </View>
             </View>
@@ -139,10 +153,10 @@ export default function EatHealthyScreen() {
                             </View>
                             <View style={styles.textContainer}>
                                 <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
-                                    {challenge.title}
+                                    {t(challenge.title)}
                                 </Text>
                                 <Text style={[styles.challengeSubtitle, { color: colors.textSecondary }]}>
-                                    {challenge.subtitle}
+                                    {t(challenge.subtitle)}
                                 </Text>
                             </View>
                         </TouchableOpacity>

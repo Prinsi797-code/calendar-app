@@ -1,15 +1,16 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
   Alert,
-  SafeAreaView,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -26,14 +27,37 @@ interface Challenge {
 
 export default function ChallengeScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { theme, colors } = useTheme();
   const today = new Date();
   const formattedDate = today.toLocaleDateString('en-GB');
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { t } = useTranslation();
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
-  // Load challenges from AsyncStorage
+  useFocusEffect(
+    useCallback(() => {
+      const parentNav = navigation.getParent();
+      if (parentNav) {
+        parentNav.setOptions({
+          headerShown: false,
+        });
+      }
+      loadChallenges();
+      return () => {
+        if (parentNav) {
+          parentNav.setOptions({
+            headerShown: true,
+          });
+        }
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+      };
+    }, [navigation])
+  );
+
   const loadChallenges = async () => {
     try {
       const challengesData = await AsyncStorage.getItem('challenges');
@@ -48,16 +72,37 @@ export default function ChallengeScreen() {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadChallenges();
-      // Reset selection mode when screen loses focus
-      return () => {
-        setSelectionMode(false);
-        setSelectedIds(new Set());
-      };
-    }, [])
-  );
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const pulseStyle = {
+    transform: [
+      {
+        scale: pulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.6],
+        }),
+      },
+    ],
+    opacity: pulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.6, 0],
+    }),
+  };
 
   const formatDate = (isoDate: string) => {
     const date = new Date(isoDate);
@@ -100,15 +145,15 @@ export default function ChallengeScreen() {
 
   const handleDelete = async () => {
     Alert.alert(
-      'Delete Challenges',
-      `Are you sure you want to delete ${selectedIds.size} challenge${selectedIds.size > 1 ? 's' : ''}?`,
+      t('delete_challenge_title'),
+      t('delete_challenge_message', { count: selectedIds.size }),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -134,189 +179,192 @@ export default function ChallengeScreen() {
   };
 
   return (
-    <>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {selectionMode ? (
-        <View style={[styles.fullScreenContainer, { backgroundColor: colors.background }]}>
-          {/* Selection Header */}
-          <View style={[styles.selectionHeader, { backgroundColor: colors.background }]}>
-            <TouchableOpacity onPress={handleCancelSelection} style={styles.cancelButton}>
-              <Feather name="x" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
+        // Selection Mode Header
+        <View style={[styles.selectionHeader, { backgroundColor: colors.background }]}>
+          <TouchableOpacity onPress={handleCancelSelection} style={styles.cancelButton}>
+            <Feather name="x" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
 
-            <Text style={[styles.selectionTitle, { color: colors.textPrimary }]}>
-              {selectedIds.size} Selected
-            </Text>
+          <Text style={[styles.selectionTitle, { color: colors.textPrimary }]}>
+            {selectedIds.size} {t("selected")}
+          </Text>
 
-            <TouchableOpacity
-              onPress={handleDelete}
-              style={styles.deleteButton}
-              disabled={selectedIds.size === 0}
-            >
-              <Feather
-                name="trash-2"
-                size={24}
-                color={selectedIds.size > 0 ? '#FF6B6B' : colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.scrollView}>
-            <View style={styles.challengeList}>
-              {challenges.map((challenge) => {
-                const isSelected = selectedIds.has(challenge.id);
-                return (
-                  <TouchableOpacity
-                    key={challenge.id}
-                    style={[
-                      styles.challengeCard,
-                      { backgroundColor: colors.cardBackground },
-                      isSelected && styles.selectedCard
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => handleSelectToggle(challenge.id)}
-                  >
-                    <View style={styles.challengeContent}>
-                      <Text style={[styles.challengeTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-                        {challenge.title}
-                      </Text>
-                      <Text style={[styles.challengeDate, { color: colors.textSecondary }]}>
-                        {formatDate(challenge.startDate)} - {formatDate(challenge.endDate)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.radioContainer}>
-                      {isSelected ? (
-                        <View style={[styles.radioSelected, { borderColor: '#FF6B6B' }]}>
-                          <View style={styles.radioInner} />
-                        </View>
-                      ) : (
-                        <View style={[styles.radioUnselected, { borderColor: colors.textSecondary }]} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={styles.deleteButton}
+            disabled={selectedIds.size === 0}
+          >
+            <Feather
+              name="trash-2"
+              size={24}
+              color={selectedIds.size > 0 ? '#FF6B6B' : colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
       ) : (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-          <Text style={[styles.header, { color: colors.textPrimary }]}>Challenge</Text>
+        // Normal Header
+        <Text style={[styles.header, { color: colors.textPrimary }]}>{t("challenge")}</Text>
+      )}
 
-          <ScrollView style={styles.scrollView}>
-            <View style={styles.challengeList}>
-              {challenges.length === 0 ? (
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.challengeList}>
+          {challenges.length === 0 ? (
+            <TouchableOpacity
+              style={[styles.challengeCard, { backgroundColor: colors.cardBackground }]}
+              activeOpacity={0.8}
+              onPress={() => handleCardPress()}
+            >
+              <View style={styles.challengeContent}>
+                <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
+                  Challenge Yourself Today.
+                </Text>
+                <Text style={[styles.challengeDate, { color: colors.textSecondary }]}>
+                  {formattedDate} - {formattedDate}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            challenges.map((challenge) => {
+              const isSelected = selectedIds.has(challenge.id);
+              return (
                 <TouchableOpacity
-                  style={[styles.challengeCard, { backgroundColor: colors.cardBackground }]}
+                  key={challenge.id}
+                  style={[
+                    styles.challengeCard,
+                    { backgroundColor: colors.cardBackground },
+                    isSelected && styles.selectedCard
+                  ]}
                   activeOpacity={0.8}
-                  onPress={() => handleCardPress()}
+                  onPress={() => handleCardPress(challenge)}
+                  onLongPress={() => handleLongPress(challenge.id)}
+                  delayLongPress={500}
                 >
                   <View style={styles.challengeContent}>
-                    <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
-                      Challenge Yourself Today.
+                    <Text style={[styles.challengeTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {challenge.title}
                     </Text>
                     <Text style={[styles.challengeDate, { color: colors.textSecondary }]}>
-                      {formattedDate} - {formattedDate}
+                      {formatDate(challenge.startDate)} - {formatDate(challenge.endDate)}
                     </Text>
                   </View>
-                  {/* <View style={styles.emptyCheckbox} /> */}
-                </TouchableOpacity>
-              ) : (
-                challenges.map((challenge) => (
-                  <TouchableOpacity
-                    key={challenge.id}
-                    style={[
-                      styles.challengeCard,
-                      { backgroundColor: colors.cardBackground },
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => handleCardPress(challenge)}
-                    onLongPress={() => handleLongPress(challenge.id)}
-                    delayLongPress={500}
-                  >
-                    <View style={styles.challengeContent}>
-                      <Text style={[styles.challengeTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-                        {challenge.title}
-                      </Text>
-                      <Text style={[styles.challengeDate, { color: colors.textSecondary }]}>
-                        {formatDate(challenge.startDate)} - {formatDate(challenge.endDate)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))
-              )}
-            </View>
-          </ScrollView>
 
+                  {selectionMode && (
+                    <View
+                      style={[
+                        styles.checkCircle,
+                        isSelected
+                          ? { backgroundColor: '#FF6B6B', borderColor: '#FF6B6B' }
+                          : { backgroundColor: 'transparent', borderColor: colors.textSecondary }
+                      ]}
+                    >
+                      {isSelected && (
+                        <Feather name="check" size={16} color="#fff" />
+                      )}
+                    </View>
+                  )}
+
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
+
+      {!selectionMode && (
+        <View style={{ position: "absolute", right: 16, bottom: 80 }}>
+          <Animated.View
+            style={[
+              styles.pulseRing,
+              pulseStyle,
+              { backgroundColor: colors.primary },
+            ]}
+          />
           <TouchableOpacity
             style={[styles.fab, { backgroundColor: colors.primary }]}
             onPress={() => router.push('/challenge/create')}
+            activeOpacity={0.8}
           >
-            <Text style={styles.fabText}>+</Text>
+            <View style={styles.fabTextWrapper}>
+              <Text style={styles.fabText}>+</Text>
+            </View>
           </TouchableOpacity>
-        </SafeAreaView>
+        </View>
       )}
-    </>
+    </View>
   );
 }
-
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  fullScreenContainer: { flex: 1 },
-  scrollView: { flex: 1, paddingHorizontal: 16 },
-  header: { fontSize: 20, fontWeight: 'bold', marginTop: 16, marginBottom: 20, marginHorizontal: 16 },
-
+  container: {
+    flex: 1,
+  },
+  header: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    paddingHorizontal: 16,
+    paddingTop: 70,
+    paddingBottom: 10,
+  },
   selectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 60,
+    paddingBottom: 16,
   },
-  cancelButton: { padding: 4 },
-  selectionTitle: { fontSize: 18, fontWeight: '600', flex: 1, marginLeft: 12 },
-  deleteButton: { padding: 4 },
-
-  memo: { paddingBottom: 100 },
-  challengeList: { gap: 12 },
-
+  cancelButton: {
+    padding: 8,
+  },
+  selectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  challengeList: {
+    padding: 16,
+  },
   challengeCard: {
     borderRadius: 12,
     padding: 16,
-    paddingLeft: 20,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    position: 'relative',
   },
-
-  selectedCard: { opacity: 0.8 },
-
-  defaultCard: {
-    borderWidth: 1,
-    borderColor: '#333',
-    borderStyle: 'dashed',
+  selectedCard: {
+    borderWidth: 2,
+    borderColor: '#FF6B6B',
   },
-
-  leftLine: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: '#5a0a0aff',
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
+  checkCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
-
-  selectedLeftLine: { backgroundColor: '#FF6B6B' },
-
-  challengeContent: { flex: 1 },
-  challengeTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  memoDetails: { fontSize: 14, marginBottom: 4 },
-  challengeDate: { fontSize: 13 },
-
-  radioContainer: { marginLeft: 12 },
+  challengeContent: {
+    flex: 1,
+  },
+  challengeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  challengeDate: {
+    fontSize: 14,
+  },
+  radioContainer: {
+    marginLeft: 12,
+  },
   radioSelected: {
     width: 24,
     height: 24,
@@ -325,20 +373,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF6B6B' },
-  radioUnselected: { width: 24, height: 24, borderRadius: 12, borderWidth: 2 },
-
+  radioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FF6B6B',
+  },
+  radioUnselected: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
   fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 80,
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-
-  fabText: { color: '#fff', fontSize: 32, fontWeight: '300' },
+  fabTextWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabText: {
+    fontSize: 32,
+    color: '#FFFFFF',
+    fontWeight: '300',
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    top: 0,
+    left: 0,
+  },
 });

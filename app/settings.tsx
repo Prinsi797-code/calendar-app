@@ -2,39 +2,56 @@ import { Feather } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function Settings() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { theme, colors } = useTheme();
 
   const handleNotifications = () => {
-    // Navigate to notification settings screen
     router.push('/notificationmore');
   };
 
   const handleAfterCall = () => {
-    Alert.alert('After Call Feature', 'After call feature coming soon!');
+    Alert.alert(
+      t("after_call_feature_msg"),
+      t("feature_coming_soon")
+    );
   };
 
   const handleThemeMode = () => {
     router.push('/theme-mode');
   };
 
+  // t("success"),
+  //     newTheme === "light"
+  //       ? t("light_theme_appleid")
+  //       : t("dark_theme_appleid")
+  //   );
+
   const handleRate = () => {
-    Alert.alert('Rate Us', 'Would you like to rate our app?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t("rate_us"), (t("would_you_app")), [
       {
-        text: 'Rate', onPress: () => {
-          Alert.alert('Thank you!', 'Redirecting to store...');
-        }
+        text: t("cancel"),
+        style: "cancel",
+      },
+      {
+        text: t("rate"),
+        onPress: () => {
+          Alert.alert(
+            t("thank_you"),
+            t("redirecting_store")
+          );
+        },
       }
     ]);
   };
 
   const handleShare = () => {
-    Alert.alert('Share App', 'Share this app with your friends!');
+    Alert.alert(t("share_app"), t("share_friends"));
   };
 
   const handlePrivacyPolicy = () => {
@@ -43,11 +60,19 @@ export default function Settings() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      {/* <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={[styles.backIcon, { color: colors.textPrimary }]}>←</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
+        <View style={styles.placeholder} />
+      </View> */}
+
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("settings")}</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -60,7 +85,7 @@ export default function Settings() {
               color={theme === 'dark' ? colors.white : colors.textPrimary}
             />
           </View>
-          <Text style={[styles.settingText, { color: colors.textPrimary }]}>Notification</Text>
+          <Text style={[styles.settingText, { color: colors.textPrimary }]}>{t("notification")}</Text>
           <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
         </TouchableOpacity>
 
@@ -72,7 +97,7 @@ export default function Settings() {
               color={theme === 'dark' ? colors.white : colors.textPrimary}
             />
           </View>
-          <Text style={[styles.settingText, { color: colors.textPrimary }]}>After Call Feature</Text>
+          <Text style={[styles.settingText, { color: colors.textPrimary }]}>{t("after_call_feature")}</Text>
           <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
         </TouchableOpacity>
 
@@ -84,7 +109,7 @@ export default function Settings() {
               color={theme === 'dark' ? colors.white : colors.textPrimary}
             />
           </View>
-          <Text style={[styles.settingText, { color: colors.textPrimary }]}>Theme Mode</Text>
+          <Text style={[styles.settingText, { color: colors.textPrimary }]}>{t("theme_mode")}</Text>
           <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
         </TouchableOpacity>
 
@@ -96,7 +121,7 @@ export default function Settings() {
               color={theme === 'dark' ? colors.white : colors.textPrimary}
             />
           </View>
-          <Text style={[styles.settingText, { color: colors.textPrimary }]}>Rate</Text>
+          <Text style={[styles.settingText, { color: colors.textPrimary }]}>{t("rate")}</Text>
           <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
         </TouchableOpacity>
 
@@ -108,7 +133,7 @@ export default function Settings() {
               color={theme === 'dark' ? colors.white : colors.textPrimary}
             />
           </View>
-          <Text style={[styles.settingText, { color: colors.textPrimary }]}>Share</Text>
+          <Text style={[styles.settingText, { color: colors.textPrimary }]}>{t("Share")}</Text>
           <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
         </TouchableOpacity>
 
@@ -128,7 +153,7 @@ export default function Settings() {
           </View>
 
           <Text style={[styles.settingText, { color: colors.textPrimary }]}>
-            Privacy Policy
+            {t("privacy_policy")}
           </Text>
 
           <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
@@ -146,18 +171,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingTop: 60,
+    paddingBottom: 15,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingTop: 48,
-    borderBottomWidth: 1,
   },
+
   backButton: {
     padding: 4,
+    marginRight: 10,
   },
   backIcon: {
-    fontSize: 28,
-    fontWeight: '300',
+    fontSize: 24,
   },
   headerTitle: {
     fontSize: 18,

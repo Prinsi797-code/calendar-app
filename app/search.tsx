@@ -1,13 +1,16 @@
 import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { loadData } from '../utils/storage';
@@ -15,142 +18,260 @@ import { loadData } from '../utils/storage';
 export default function SearchScreen() {
   const router = useRouter();
   const { colors, theme } = useTheme();
+  const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [events, setEvents] = useState<any[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<any[]>([]);
+  const [challenges, setChallenges] = useState<any[]>([]);
+  const [memos, setMemos] = useState<any[]>([]);
+  const [diaries, setDiaries] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [filteredItems, setFilteredItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const holidays = [
-    { date: '2024-09-07', name: 'Ganesh Chaturthi' },
-    { date: '2024-09-15', name: 'Onam' },
-    { date: '2024-09-16', name: 'Milad un-Nabi' },
-    { date: '2024-10-02', name: 'Mahatma Gandhi Jayanti' },
-    { date: '2024-10-03', name: 'Sharad Navratri' },
-    { date: '2024-10-09', name: 'Durga Puja Festivities' },
-    { date: '2024-10-10', name: 'Maha Saptami' },
-    { date: '2024-10-11', name: 'Maha Ashtami' },
-    { date: '2024-10-12', name: 'Dussehra' },
-    { date: '2024-10-17', name: 'Valmiki Jayanti' },
-    { date: '2024-10-20', name: 'Karaka Chaturthi' },
-    { date: '2024-10-31', name: 'Diwali' },
-    { date: '2024-11-02', name: 'Govardhan Puja' },
-    { date: '2024-11-03', name: 'Bhai Duj' },
-    { date: '2024-11-07', name: 'Chhat Puja' },
-    { date: '2024-11-15', name: 'Guru Nanak Jayanti' },
-    { date: '2024-12-25', name: 'Christmas' },
-    { date: '2025-01-01', name: 'New Year' },
-    { date: '2025-01-13', name: 'Lohri' },
-    { date: '2025-01-14', name: 'Makar Sankranti' },
-    { date: '2025-01-15', name: 'Pongal' },
-    { date: '2025-01-17', name: 'Guru Govind Singh Jayanti' },
-    { date: '2025-01-25', name: "Hazarat Ali's Birthday" },
-    { date: '2025-01-26', name: 'Republic Day' },
-    { date: '2025-11-05', name: 'Chhath Puja' },
-    { date: '2025-12-05', name: 'Guru Nanak Jayanti' },
-    { date: '2025-12-24', name: 'Christmas Eve' },
-    { date: '2025-12-25', name: 'Christmas' },
-  ];
+  const API_KEY = "AIzaSyCbk3aJTWGqJZVHtb3SR7OqzUFEc9Cewe0";
+  const calendarId = "en.indian#holiday@group.v.calendar.google.com";
+  const encodedCalendarId = encodeURIComponent(calendarId);
+  const currentYear = new Date().getFullYear();
+  const startDate = `${currentYear}-01-01T00:00:00Z`;
+  const endDate = `${currentYear + 3}-12-31T23:59:59Z`;
 
   useEffect(() => {
-    loadEvents();
+    loadAllData();
   }, []);
 
   useEffect(() => {
-    filterEvents();
-  }, [searchQuery, events]);
+    filterAllItems();
+  }, [searchQuery, events, challenges, memos, diaries, holidays]);
 
-  const loadEvents = async () => {
-    const data = await loadData('events');
-    if (data) setEvents(data);
-  };
+  const fetchHolidays = async () => {
+    try {
+      const API_URL = `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events` +
+          `?key=${API_KEY}` +
+          `&timeMin=${currentYear}-01-01T00:00:00Z` +
+          `&timeMax=${currentYear + 3}-12-31T23:59:59Z` +
+          `&maxResults=1000` +
+          `&singleEvents=true` +
+          `&orderBy=startTime` +
+          `&hl=${i18n.language === 'hi' ? 'hi' : 'en'}`;
+      
+      const response = await fetch(API_URL);
+      const data = await response.json();
 
-  const filterEvents = () => {
-    // Combine user events and holidays
-    const userEvents = events.map((e) => ({
-      ...e,
-      isHoliday: false,
-    }));
-
-    const holidayEvents = holidays.map((h) => ({
-      id: `holiday-${h.date}`,
-      title: h.name,
-      date: h.date,
-      allDay: true,
-      isHoliday: true,
-    }));
-
-    const allEvents = [...holidayEvents, ...userEvents];
-
-    // Filter based on search query
-    if (searchQuery.trim() === '') {
-      setFilteredEvents(allEvents);
-    } else {
-      const filtered = allEvents.filter((event) =>
-        event.title.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredEvents(filtered);
+      if (data.items) {
+        const holidayEvents = data.items.map((item: any) => ({
+          id: `holiday-${item.id}`,
+          title: item.summary,
+          date: item.start.date || item.start.dateTime.split('T')[0],
+          allDay: true,
+          type: 'holiday',
+        }));
+        setHolidays(holidayEvents);
+      }
+    } catch (error) {
+      console.error('Error fetching holidays:', error);
+      // Fallback to empty array if API fails
+      setHolidays([]);
     }
   };
 
-  // Group events by date
-  const groupEventsByDate = () => {
-    const grouped: { [key: string]: any[] } = {};
+  // Load all data from storage
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
 
-    filteredEvents.forEach((event) => {
-      const date = event.date;
+      const eventsData = await loadData('events');
+      if (eventsData) setEvents(eventsData);
+
+      const challengesData = await AsyncStorage.getItem('challenges');
+      if (challengesData) {
+        const parsedChallenges = JSON.parse(challengesData);
+        setChallenges(parsedChallenges);
+      }
+
+      const memosData = await AsyncStorage.getItem('memos');
+      if (memosData) {
+        const parsedMemos = JSON.parse(memosData);
+        setMemos(parsedMemos);
+      }
+      const diariesData = await AsyncStorage.getItem('diarys');
+      if (diariesData) {
+        const parsedDiaries = JSON.parse(diariesData);
+        setDiaries(parsedDiaries);
+      }
+      await fetchHolidays();
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setLoading(false);
+    }
+  };
+  const filterAllItems = () => {
+    let allItems: any[] = [];
+
+    // Add holidays
+    allItems = allItems.concat(
+      holidays.map((h) => ({
+        ...h,
+        type: 'holiday',
+        displayDate: h.date,
+      }))
+    );
+
+    // Add events
+    allItems = allItems.concat(
+      events.map((e) => ({
+        ...e,
+        type: 'event',
+        displayDate: e.date || e.startDate,
+      }))
+    );
+
+    // Add challenges
+    allItems = allItems.concat(
+      challenges.map((c) => ({
+        ...c,
+        type: 'challenge',
+        displayDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      }))
+    );
+
+    allItems = allItems.concat(
+      memos.map((m) => ({
+        ...m,
+        type: 'memo',
+        displayDate: m.Date || m.date || new Date().toISOString().split('T')[0],
+      }))
+    );
+    allItems = allItems.concat(
+      diaries.map((d) => ({
+        ...d,
+        type: 'diary',
+        displayDate: d.Date ? new Date(d.Date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      }))
+    );
+    if (searchQuery.trim() !== '') {
+      allItems = allItems.filter((item) =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    setFilteredItems(allItems);
+  };
+
+  const groupItemsByDate = () => {
+    const grouped: { [key: string]: any[] } = {};
+    
+    filteredItems.forEach((item) => {
+      const date = item.displayDate;
       if (!grouped[date]) {
         grouped[date] = [];
       }
-      grouped[date].push(event);
+      grouped[date].push(item);
     });
-
-    // Sort dates in ascending order
     const sortedDates = Object.keys(grouped).sort(
       (a, b) => new Date(a).getTime() - new Date(b).getTime()
     );
 
     return sortedDates.map((date) => ({
       date,
-      events: grouped[date],
+      items: grouped[date],
     }));
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    const dayName = days[date.getDay()];
-    const day = date.getDate();
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-
-    return `${dayName}, ${day} ${month} ${year}`;
+    return date.toLocaleDateString(i18n.language, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
-  const groupedEvents = groupEventsByDate();
+  // Get type-specific styling and icon
+  const getTypeStyle = (type: string, item?: any) => {
+    switch (type) {
+      case 'holiday':
+        return { color: '#FF6B6B', icon: 'calendar' };
+      case 'event':
+        // Use event's color if available, otherwise default to #0267FF
+        return { 
+          color: item?.color || '#0267FF', 
+          icon: 'calendar' 
+        };
+      case 'challenge':
+        return { color: '#4CAF50', icon: 'target' };
+      case 'memo':
+        return { color: '#FF9800', icon: 'file-text' };
+      case 'diary':
+        return { color: '#9C27B0', icon: 'book' };
+      default:
+        return { color: '#0267FF', icon: 'calendar' };
+    }
+  };
+
+  // Navigate to appropriate edit screen
+  const handleItemPress = (item: any) => {
+    switch (item.type) {
+      case 'event':
+        router.push({
+          pathname: '/editEvent',
+          params: {
+            eventId: item.id,
+            title: item.title,
+            description: item.description,
+            startDate: item.startDate,
+            endDate: item.endDate,
+            startTime: item.startTime,
+            endTime: item.endTime,
+            allDay: item.allDay.toString(),
+            repeat: item.repeat,
+            reminders: JSON.stringify(item.reminders),
+          },
+        });
+        break;
+      case 'challenge':
+        router.push({
+          pathname: '/challenge/new',
+          params: { id: item.id },
+        });
+        break;
+      case 'memo':
+        router.push({
+          pathname: '/memo/new',
+          params: { id: item.id },
+        });
+        break;
+      case 'diary':
+        router.push({
+          pathname: '/diary/new',
+          params: { id: item.id },
+        });
+        break;
+      default:
+        break;
+    }
+  };
+
+  const groupedItems = groupItemsByDate();
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            {t('loading')}...
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: colors.background, borderBottomColor: colors.border },
-        ]}
-      >
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -166,7 +287,7 @@ export default function SearchScreen() {
               color: colors.textPrimary,
             },
           ]}
-          placeholder="Search events..."
+          placeholder={t('search_events')}
           placeholderTextColor={colors.textTertiary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -175,113 +296,119 @@ export default function SearchScreen() {
 
         <TouchableOpacity
           style={styles.settingsButton}
-          onPress={() => {
-            /* Add settings action */
-          }}
+          onPress={() => router.push('/settings')} 
         >
           <Feather name="settings" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
+
+
+        
       </View>
 
-      {/* Events List */}
       <ScrollView style={styles.content}>
-        {groupedEvents.length > 0 ? (
-          groupedEvents.map((group) => (
+        {groupedItems.length > 0 ? (
+          groupedItems.map((group) => (
             <View key={group.date} style={styles.dateGroup}>
-              {/* Date Header */}
               <Text style={[styles.dateHeader, { color: colors.textPrimary }]}>
                 {formatDate(group.date)}
               </Text>
-
-              {/* Events for this date */}
-              {group.events.map((event) => (
-                <TouchableOpacity
-                  key={event.id}
-                  style={[
-                    styles.eventCard,
-                    { backgroundColor: colors.cardBackground },
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    if (!event.isHoliday) {
-                      router.push({
-                        pathname: '/editEvent',
-                        params: {
-                          eventId: event.id,
-                          title: event.title,
-                          description: event.description,
-                          startDate: event.startDate,
-                          endDate: event.endDate,
-                          startTime: event.startTime,
-                          endTime: event.endTime,
-                          allDay: event.allDay.toString(),
-                          repeat: event.repeat,
-                          reminders: JSON.stringify(event.reminders),
-                        },
-                      });
-                    }
-                  }}
-                >
-                  {/* Color Bar */}
-                  <View
+              {group.items.map((item) => {
+                const typeStyle = getTypeStyle(item.type, item);
+                
+                return (
+                  <TouchableOpacity
+                    key={item.id}
                     style={[
-                      styles.eventColorBar,
-                      {
-                        backgroundColor: event.isHoliday
-                          ? '#FF6B6B'
-                          : colors.primary,
-                      },
+                      styles.eventCard,
+                      { backgroundColor: colors.cardBackground },
                     ]}
-                  />
-
-                  {/* Event Content */}
-                  <View style={styles.eventContent}>
-                    <Text
-                      style={[styles.eventTitle, { color: colors.textPrimary }]}
-                    >
-                      {event.title}
-                    </Text>
-
-                    <View style={styles.eventDetails}>
-                      <Text
-                        style={[styles.eventTime, { color: colors.textTertiary }]}
-                      >
-                        {event.isHoliday
-                          ? 'All-day'
-                          : `${event.startTime} - ${event.endTime}`}
-                      </Text>
-
-                      {!event.allDay && event.repeat && (
-                        <Text
-                          style={[
-                            styles.repeatBadge,
-                            {
-                              color: colors.textTertiary,
-                              backgroundColor: colors.background,
-                            },
-                          ]}
-                        >
-                          {event.repeat === 'Does not repeat'
-                            ? 'Never'
-                            : event.repeat.replace('Every ', '')}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Holiday Badge */}
-                  {event.isHoliday && (
+                    activeOpacity={0.7}
+                    onPress={() => handleItemPress(item)}
+                    disabled={item.type === 'holiday'}
+                  >
                     <View
                       style={[
-                        styles.holidayBadge,
-                        { backgroundColor: '#FF6B6B' },
+                        styles.eventColorBar,
+                        { backgroundColor: typeStyle.color },
+                      ]}
+                    />
+
+                    <View style={styles.eventContent}>
+                      <View style={styles.titleRow}>
+                        {item.icon && (
+                          <Text style={styles.itemIcon}>{item.icon}</Text>
+                        )}
+                        <Text
+                          style={[
+                            styles.eventTitle,
+                            { color: colors.textPrimary },
+                          ]}
+                        >
+                          {item.title}
+                        </Text>
+                      </View>
+
+                      {item.type === 'diary' ? (
+                        null
+                      ) : (
+                        <View style={styles.eventDetails}>
+                          {item.type === 'holiday' || item.allDay ? (
+                            <Text
+                              style={[
+                                styles.eventTime,
+                                { color: colors.textTertiary },
+                              ]}
+                            >
+                              {t('all_day')}
+                            </Text>
+                          ) : item.type === t('event') ? (
+                            <Text
+                              style={[
+                                styles.eventTime,
+                                { color: colors.textTertiary },
+                              ]}
+                            >
+                              {`${item.startTime} - ${item.endTime}`}
+                            </Text>
+                          ) : item.type === t('challenge') ? (
+                            <Text
+                              style={[
+                                styles.eventTime,
+                                { color: colors.textTertiary },
+                              ]}
+                            >
+                              {item.repeat === 'everyday'
+                                ? t('daily')
+                                : item.repeat === 'every_week'
+                                ? t('weekly')
+                                : item.repeat === 'every_month'
+                                ? t('monthly')
+                                : t('once')}
+                            </Text>
+                          ) : null}
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Type Badge */}
+                    <View
+                      style={[
+                        styles.typeBadge,
+                        { backgroundColor: typeStyle.color },
                       ]}
                     >
-                      <Text style={styles.holidayBadgeText}>Holiday</Text>
+                      <Feather
+                        name={typeStyle.icon as any}
+                        size={12}
+                        color="#FFF"
+                      />
+                      <Text style={styles.typeBadgeText}>
+                        {t(item.type)}
+                      </Text>
                     </View>
-                  )}
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           ))
         ) : (
@@ -292,10 +419,12 @@ export default function SearchScreen() {
               color={colors.textTertiary}
               style={styles.noResultsIcon}
             />
-            <Text style={[styles.noResultsText, { color: colors.textTertiary }]}>
+            <Text
+              style={[styles.noResultsText, { color: colors.textTertiary }]}
+            >
               {searchQuery.trim() === ''
-                ? 'Start typing to search events'
-                : 'No events found'}
+                ? t('start_typing_to_search')
+                : t('no_results_found')}
             </Text>
           </View>
         )}
@@ -303,7 +432,6 @@ export default function SearchScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -314,17 +442,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingTop: 40,
     gap: 12,
   },
   backButton: {
     padding: 4,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  itemIcon: {
+    fontSize: 18,
   },
   searchInput: {
     flex: 1,
     height: 44,
     borderRadius: 22,
     paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
     fontSize: 16,
   },
   settingsButton: {
@@ -334,7 +480,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateGroup: {
-    marginBottom: 24,
+    marginBottom: 1,
   },
   dateHeader: {
     fontSize: 14,
@@ -405,5 +551,21 @@ const styles = StyleSheet.create({
   noResultsText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    margin: 8,
+    alignSelf: 'flex-start',
+  },
+  typeBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
 });

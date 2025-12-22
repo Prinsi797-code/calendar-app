@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
     ScrollView,
@@ -28,13 +29,13 @@ interface Category {
 const createOptions: CreateOption[] = [
     {
         id: 'regular',
-        title: 'Regular habit',
+        title: 'regular_habit',
         icon: 'calendar',
         iconBg: '#9333EA',
     },
     {
         id: 'onetime',
-        title: 'One time task',
+        title: 'one_time_task',
         icon: 'file-text',
         iconBg: '#F59E0B',
     },
@@ -43,38 +44,38 @@ const createOptions: CreateOption[] = [
 const categories: Category[] = [
     {
         id: 'eat',
-        title: 'Eat healthy',
-        subtitle: 'Eating healthy is about balance',
+        title: 'eat_healthy',
+        subtitle: 'eating_health',
         emoji: '🥗',
     },
     {
         id: 'relax',
-        title: 'Self relaxation',
-        subtitle: 'Do something nice for you',
+        title: 'self_relaxation',
+        subtitle: 'do_something',
         emoji: '🧘',
     },
     {
         id: 'active',
-        title: 'Be active my way',
-        subtitle: 'Bunch of other positive spin-offs',
+        title: 'be_active_my',
+        subtitle: 'bunch_of_other',
         emoji: '🚴',
     },
     {
         id: 'weird',
-        title: 'Be weird. Be you',
-        subtitle: 'Being called weird is the best',
+        title: 'be_weird',
+        subtitle: 'being_called',
         emoji: '🦄',
     },
     {
         id: 'connect',
-        title: 'Connect with others',
-        subtitle: 'Live longer and decrease our risk of isolation',
+        title: 'connect_with_others',
+        subtitle: 'live_longer',
         emoji: '👥',
     },
     {
         id: 'improvement',
-        title: 'Self improvement',
-        subtitle: 'Aware of your personality, thoughts &',
+        title: 'self_improvement',
+        subtitle: 'aware_of_your',
         emoji: '💡',
     },
 ];
@@ -82,6 +83,7 @@ const categories: Category[] = [
 export default function CreateScreen() {
     const router = useRouter();
     const { theme, colors } = useTheme();
+    const { t } = useTranslation();
 
     const handleCreateOption = (optionId: string) => {
         router.push({
@@ -120,15 +122,15 @@ export default function CreateScreen() {
                     </TouchableOpacity>
 
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Create
+                        {t("create")}
                     </Text>
                 </View>
             </View>
 
-            <ScrollView style={styles.scrollView}>
+            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                 {/* Create your own section */}
                 <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                    Create your own
+                    {t("create_your_own")}
                 </Text>
 
                 <View style={styles.createOptionsContainer}>
@@ -143,7 +145,7 @@ export default function CreateScreen() {
                                 <Feather name={option.icon as any} size={24} color="#fff" />
                             </View>
                             <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
-                                {option.title}
+                                {t(option.title)}
                             </Text>
                         </TouchableOpacity>
                     ))}
@@ -151,7 +153,7 @@ export default function CreateScreen() {
 
                 {/* Categories section */}
                 <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>
-                    Choose from these categories
+                     {t("choose_categories")}
                 </Text>
 
                 <View style={styles.categoriesContainer}>
@@ -166,10 +168,10 @@ export default function CreateScreen() {
                                 <Text style={styles.categoryEmoji}>{category.emoji}</Text>
                                 <View style={styles.categoryTextContainer}>
                                     <Text style={[styles.categoryTitle, { color: colors.textPrimary }]}>
-                                        {category.title}
+                                        {t(category.title)}
                                     </Text>
                                     <Text style={[styles.categorySubtitle, { color: colors.textSecondary }]}>
-                                        {category.subtitle}
+                                        {t(category.subtitle)}
                                     </Text>
                                 </View>
                             </View>

@@ -1,8 +1,9 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Modal,
@@ -31,10 +32,12 @@ export default function NewMemoScreen() {
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [location, setLocation] = useState('');
   const [url, setUrl] = useState('');
+  const { t } = useTranslation();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showIOSPicker, setShowIOSPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+  const [memos, setMemos] = useState([]);
 
   useEffect(() => {
     requestNotificationPermission();
@@ -43,6 +46,30 @@ export default function NewMemoScreen() {
   const requestNotificationPermission = async () => {
     await NotificationService.requestPermissions();
   };
+
+  const loadMemos = async () => {
+    try {
+      const memoData = await AsyncStorage.getItem('memo');
+      console.log('Raw memo data:', memoData);
+      if (memoData) {
+        const parsedMemos = JSON.parse(memoData);
+        console.log('Parsed memos:', parsedMemos);
+        setMemos(parsedMemos);
+      } else {
+        console.log('No memo data found!');
+        setMemos([]);
+      }
+    } catch (error) {
+      console.error('Error loading memos:', error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Memo List Screen focused - Loading memos...');
+      loadMemos();
+    }, [])
+  );
 
   useEffect(() => {
     if (isEditMode && params.id) {
@@ -86,8 +113,6 @@ export default function NewMemoScreen() {
       console.error('Error loading memo:', error);
     }
   };
-
-  // ✅ FIXED: Date aur Time ko properly combine karna
   const combineDateTime = (date: Date, time: Date): Date => {
     const combined = new Date(date);
     combined.setHours(time.getHours());
@@ -97,16 +122,33 @@ export default function NewMemoScreen() {
     return combined;
   };
 
-  // ✅ FIXED: Check if datetime is in future
   const isDateTimeInFuture = (dateTime: Date): boolean => {
     const now = new Date();
     return dateTime.getTime() > now.getTime();
   };
-
   const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a title');
       return;
+    }
+    if (reminderEnabled) {
+      const reminderDateTime = combineDateTime(selectedDate, selectedTime);
+      const now = new Date();
+      const timeDiff = (reminderDateTime.getTime() - now.getTime()) / 1000;
+
+      console.log('Selected Date:', selectedDate.toISOString());
+      console.log('Selected Time:', selectedTime.toISOString());
+      console.log('Combined DateTime:', reminderDateTime.toISOString());
+      console.log('Current Time:', now.toISOString());
+      console.log('Time difference (seconds):', timeDiff);
+      if (timeDiff < 5) {
+        Alert.alert(
+          'Invalid Time',
+          'Reminder time must be at least 5 seconds in the future. Please select a later time.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
     }
 
     try {
@@ -115,40 +157,15 @@ export default function NewMemoScreen() {
       let memoId: string;
       let notificationId: string | null = null;
 
-      // ========== NOTIFICATION VALIDATION (Agar reminder enabled hai) ==========
-      if (reminderEnabled) {
-        // Date aur Time ko properly combine karna
-        const reminderDateTime = combineDateTime(selectedDate, selectedTime);
-        
-        console.log('📅 Selected Date:', selectedDate.toLocaleString());
-        console.log('⏰ Selected Time:', selectedTime.toLocaleString());
-        console.log('🔔 Combined DateTime:', reminderDateTime.toLocaleString());
-        console.log('🕐 Current Time:', new Date().toLocaleString());
-
-        // Check karo ki time future me hai ya nahi
-        if (!isDateTimeInFuture(reminderDateTime)) {
-          Alert.alert(
-            'Invalid Time ⚠️', 
-            'Reminder time must be in the future. Please select a future date and time.',
-            [{ text: 'OK' }]
-          );
-          return; // Save nahi karna agar time past me hai
-        }
-      }
-
       if (isEditMode && params.id) {
-        // ========== UPDATE EXISTING MEMO ==========
         memoId = params.id as string;
-
-        // Purana notification cancel karna
         const oldNotificationId = await AsyncStorage.getItem(`memo_${memoId}_notification`);
         if (oldNotificationId) {
           await NotificationService.cancelNotification(oldNotificationId);
           await AsyncStorage.removeItem(`memo_${memoId}_notification`);
-          console.log('🗑️ Old notification cancelled');
+          console.log('Old notification cancelled');
         }
 
-        // Update memo
         memos = memos.map((m: any) =>
           m.id === memoId
             ? {
@@ -156,63 +173,71 @@ export default function NewMemoScreen() {
               title: title.trim(),
               details: details.trim(),
               Date: selectedDate.toISOString(),
-              reminder: reminderEnabled ? combineDateTime(selectedDate, selectedTime).toISOString() : '',
+              reminder: reminderEnabled
+                ? combineDateTime(selectedDate, selectedTime).toISOString()
+                : '',
               location: location.trim(),
               url: url.trim(),
             }
             : m
         );
+        console.log('Memo updated');
 
       } else {
-        // ========== ADD NEW MEMO ==========
         memoId = Date.now().toString();
-        
+
         const newMemo = {
           id: memoId,
           title: title.trim(),
           details: details.trim(),
           Date: selectedDate.toISOString(),
-          reminder: reminderEnabled ? combineDateTime(selectedDate, selectedTime).toISOString() : '',
+          reminder: reminderEnabled
+            ? combineDateTime(selectedDate, selectedTime).toISOString()
+            : '',
           location: location.trim(),
           url: url.trim(),
           completed: false,
         };
+
         memos.push(newMemo);
+        console.log('New memo added');
       }
 
-      // ========== SCHEDULE NOTIFICATION (Agar reminder enabled hai) ==========
       if (reminderEnabled) {
         const reminderDateTime = combineDateTime(selectedDate, selectedTime);
 
-        // Notification schedule karna
+        console.log('=== Scheduling Memo Notification ===');
+        console.log('Memo ID:', memoId);
+        console.log('Title:', title.trim());
+        console.log('Reminder Time:', reminderDateTime.toISOString());
+
         notificationId = await NotificationService.scheduleMemoNotification(
           memoId,
           title.trim(),
-          details.trim() || `Reminder: ${title.trim()}`,
+          details.trim() || `Memo Reminder: ${title.trim()}`,
           reminderDateTime
         );
 
         if (notificationId) {
-          // Notification ID save karna
           await AsyncStorage.setItem(`memo_${memoId}_notification`, notificationId);
-          
-          console.log('Notification Scheduled Successfully!');
+          console.log('Memo notification scheduled successfully!');
           console.log('Notification ID:', notificationId);
           console.log('Will trigger at:', reminderDateTime.toLocaleString());
         } else {
-          console.log('Notification not scheduled (might be disabled in settings)');
+          console.error('Failed to schedule memo notification');
+          Alert.alert(
+            'Notice',
+            'Memo saved but reminder time was too close. Please edit and set a future time.'
+          );
         }
       }
-
-      // Save memo data
       await AsyncStorage.setItem('memo', JSON.stringify(memos));
-      
-      // Success message
+      console.log('Memo data saved to AsyncStorage');
+
       if (reminderEnabled && notificationId) {
-        const reminderDateTime = combineDateTime(selectedDate, selectedTime);
         Alert.alert(
-          'Success ✅', 
-          `Memo ${isEditMode ? 'updated' : 'created'} successfully!\n\nReminder set for:\n${formatDate(reminderDateTime)} at ${formatTime(reminderDateTime)}`,
+          'Success',
+          `Memo saved! Reminder set for ${formatDate(selectedDate)} at ${formatTime(selectedTime)}`,
           [{ text: 'OK', onPress: () => router.back() }]
         );
       } else {
@@ -221,7 +246,7 @@ export default function NewMemoScreen() {
 
     } catch (error) {
       console.error('Error saving memo:', error);
-      Alert.alert('Error', 'Failed to save memo');
+      Alert.alert('Error', 'Failed to save memo. Please try again.');
     }
   };
 
@@ -281,44 +306,38 @@ export default function NewMemoScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.background}]}>
-
-        {/* LEFT SIDE (Back + Title) */}
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <View style={styles.leftContainer}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            {isEditMode ? 'Edit Memo' : 'New Memo'}
+            {isEditMode ? t("edit_memo") : t("new_memo")}
           </Text>
         </View>
 
-        {/* RIGHT SIDE (SAVE/UPDATE BUTTON) */}
-        <TouchableOpacity onPress={handleSave} style={[styles.saveButton, { backgroundColor: '#FF6B6B' }]}>
-          <Text style={styles.saveText}>{isEditMode ? 'UPDATE' : 'SAVE'}</Text>
+        <TouchableOpacity onPress={handleSave} style={[styles.saveButton]}>
+          <Text style={styles.saveText}>{isEditMode ? t('update') : t('save')}</Text>
         </TouchableOpacity>
-
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.formContainer}>
-          {/* Title Input */}
           <View style={styles.inputGroup}>
             <TextInput
               style={[styles.titleInput, { color: colors.textPrimary, backgroundColor: colors.cardBackground }]}
-              placeholder="Type title"
+              placeholder={t('type_title')}
               placeholderTextColor={colors.textSecondary}
               value={title}
               onChangeText={setTitle}
             />
           </View>
 
-          {/* Details Input */}
           <View style={styles.inputGroup}>
             <TextInput
               style={[styles.detailsInput, { color: colors.textPrimary, backgroundColor: colors.cardBackground }]}
-              placeholder="Add details"
+              placeholder={t('add_details')}
               placeholderTextColor={colors.textSecondary}
               value={details}
               onChangeText={setDetails}
@@ -328,9 +347,8 @@ export default function NewMemoScreen() {
             />
           </View>
 
-          {/* Time Toggle */}
           <View style={[styles.timeContainer, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.label, { color: colors.textPrimary }]}>Time</Text>
+            <Text style={[styles.label, { color: colors.textPrimary }]}>{t('time')}</Text>
             <TouchableOpacity
               style={[styles.toggle, reminderEnabled && styles.toggleActive]}
               onPress={() => setReminderEnabled(!reminderEnabled)}
@@ -339,7 +357,6 @@ export default function NewMemoScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Date Time Pickers - Only show if reminder is enabled */}
           {reminderEnabled && (
             <View style={styles.dateTimeContainer}>
               <TouchableOpacity
@@ -364,14 +381,13 @@ export default function NewMemoScreen() {
             </View>
           )}
 
-          {/* Location Input */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Enter location</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('enter_location')}</Text>
             <View style={[styles.inputWithIcon, { backgroundColor: colors.cardBackground }]}>
               <Feather name="map-pin" size={18} color={colors.textSecondary} />
               <TextInput
                 style={[styles.input, { color: colors.textPrimary }]}
-                placeholder="Location"
+                placeholder={t('location')}
                 placeholderTextColor={colors.textSecondary}
                 value={location}
                 onChangeText={setLocation}
@@ -379,14 +395,13 @@ export default function NewMemoScreen() {
             </View>
           </View>
 
-          {/* URL Input */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Enter URL</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('enter_URL')}</Text>
             <View style={[styles.inputWithIcon, { backgroundColor: colors.cardBackground }]}>
               <Feather name="link" size={18} color={colors.textSecondary} />
               <TextInput
                 style={[styles.input, { color: colors.textPrimary }]}
-                placeholder="URL"
+                placeholder={t('url')}
                 placeholderTextColor={colors.textSecondary}
                 value={url}
                 onChangeText={setUrl}
@@ -398,36 +413,46 @@ export default function NewMemoScreen() {
         </View>
       </ScrollView>
 
-      {/* iOS Modal Picker */}
       {Platform.OS === 'ios' && (
-        <Modal
-          visible={showIOSPicker}
-          transparent
-          animationType="slide"
-        >
+        <Modal visible={showIOSPicker} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={() => setShowIOSPicker(false)}>
-                  <Text style={[styles.modalButton, { color: '#FF6B6B' }]}>Cancel</Text>
+
+              {/* Title */}
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                {t('select_reminder_time')}
+              </Text>
+
+              <View style={styles.pickerWrapper}>
+                <DateTimePicker
+                  value={pickerMode === 'date' ? selectedDate : selectedTime}
+                  mode={pickerMode}
+                  display="spinner"
+                  onChange={pickerMode === 'date' ? onDateChange : onTimeChange}
+                  textColor={colors.textPrimary}
+                />
+              </View>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity onPress={() => setShowIOSPicker(false)} style={styles.modalButton}>
+                  <Text style={[styles.modalButtonText, { color: colors.textSecondary }]}>
+                    {t('cancel')}
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowIOSPicker(false)}>
-                  <Text style={[styles.modalButton, { color: '#FF6B6B' }]}>Done</Text>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonPrimary]}
+                  onPress={() => setShowIOSPicker(false)}
+                >
+                  <Text style={[styles.modalButtonTextPrimary]}>
+                    {t('ok')}
+                  </Text>
                 </TouchableOpacity>
               </View>
-              <DateTimePicker
-                value={pickerMode === 'date' ? selectedDate : selectedTime}
-                mode={pickerMode}
-                display="spinner"
-                onChange={pickerMode === 'date' ? onDateChange : onTimeChange}
-                textColor={colors.textPrimary}
-              />
             </View>
           </View>
         </Modal>
       )}
-
-      {/* Android Date Picker */}
       {Platform.OS === 'android' && showDatePicker && (
         <DateTimePicker
           value={selectedDate}
@@ -437,7 +462,6 @@ export default function NewMemoScreen() {
         />
       )}
 
-      {/* Android Time Picker */}
       {Platform.OS === 'android' && showTimePicker && (
         <DateTimePicker
           value={selectedTime}
@@ -477,10 +501,11 @@ const styles = StyleSheet.create({
   saveButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 4,
+    backgroundColor: '#FF5252',
+    borderRadius: 10,
   },
   saveText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -549,6 +574,11 @@ const styles = StyleSheet.create({
   toggleCircleActive: {
     alignSelf: 'flex-end',
   },
+  modalButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
   dateTimeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -571,17 +601,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '90%',
-    borderRadius: 20,
-    paddingBottom: 20,
-  },
+
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -590,8 +610,60 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  modalButton: {
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+
+  modalContent: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 16,
+  },
+
+  footerButton: {
     fontSize: 16,
     fontWeight: '600',
   },
+  modalButtonText: {
+    color: '#888',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextPrimary: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#FF5252',
+  },
+  pickerWrapper: {
+    width: '100%',
+    overflow: 'hidden',   // 🔥 MOST IMPORTANT
+    alignItems: 'center',
+  },
+
+  datePicker: {
+    width: '100%',
+    height: 180,
+  },
+
 });

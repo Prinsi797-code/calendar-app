@@ -1,5 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from "react-i18next";
+
 import React from 'react';
 import {
     SafeAreaView,
@@ -21,68 +23,68 @@ interface ChallengeOption {
 const relaxChallenges: ChallengeOption[] = [
   {
     id: 'body',
-    title: 'Relax your mind and body',
-    subtitle: 'Relieve anxiety, depression and sleep problems',
+    title: 'relax_your_mind',
+    subtitle: 'relieve_anxiety_depression',
     icon: 'meditation',
   },
   {
     id: 'brushing',
-    title: 'Regular tooth brushing',
-    subtitle: 'Gear up for the day ahead',
+    title: 'regular_tooth',
+    subtitle: 'gear_up_for',
     icon: 'toothbrush',
   },
   {
     id: 'books',
-    title: 'Read books',
-    subtitle: 'Strengthen the brain and lengthen lifespan',
+    title: 'read_books',
+    subtitle: 'strengthen_the_brain',
     icon: 'book-open-page-variant',
   },
   {
     id: 'sleep',
-    title: 'Get enough sleep',
-    subtitle: 'Reduce stress and improve your mood',
+    title: 'get_enough_sleep',
+    subtitle: 'reduce_strees_improve',
     icon: 'sleep',
   },
   {
     id: 'journal',
-    title: 'Keep a journal',
-    subtitle: 'Allow yourself to self-reflect',
+    title: 'Keep_journal',
+    subtitle: 'allow_yourself_reflect',
     icon: 'notebook-edit-outline',
   },
   {
     id: 'shower',
-    title: 'Take a shower',
-    subtitle: 'Decreased anxiety',
+    title: 'take_a_shower',
+    subtitle: 'decreased_anxiety',
     icon: 'shower',
   },
   {
     id: 'music',
-    title: 'Listen to music',
-    subtitle: 'Provide comfort and lessen anxiety',
+    title: 'listen_to_music',
+    subtitle: 'provide_comfort_lessen',
     icon: 'music-note',
   },
   {
     id: 'smile',
-    title: 'Smile everyday',
-    subtitle: 'Smiling elevates mood',
+    title: 'smile_everyday',
+    subtitle: 'smiling_elevates_mood',
     icon: 'emoticon-happy-outline',
   },
   {
     id: 'chat',
-    title: 'Chat with friends',
-    subtitle: 'Reduce pressure in your life',
+    title: 'chat_with_friends',
+    subtitle: 'reduce_pressure_life',
     icon: 'chat-outline',
   },
   {
     id: 'sleep2',
-    title: 'Sleep early',
-    subtitle: 'Improve your memories',
+    title: 'sleep_early',
+    subtitle: 'improve_your_memories',
     icon: 'bed-clock',
   },
   {
     id: 'media',
-    title: 'Break away from media',
-    subtitle: 'Find value in yourself',
+    title: 'break_away_from_media',
+    subtitle: 'find_value_yourself',
     icon: 'cellphone-off',
   },
 ];
@@ -90,6 +92,8 @@ const relaxChallenges: ChallengeOption[] = [
 
 export default function RelaxationScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
+    const { from } = useLocalSearchParams();
     const { theme, colors } = useTheme();
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
@@ -103,18 +107,35 @@ export default function RelaxationScreen() {
         });
     };
 
+    const handleBackPress = async () => {
+        try {
+            if (from === "relax") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        } catch (error) {
+            console.error("Error showing back ad:", error);
+            if (from === "relax") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.leftContainer}>
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBackPress}
                         style={styles.backButton}>
                         <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        Self relaxation
+                        {t("self_relaxation")}
                     </Text>
                 </View>
             </View>
@@ -138,10 +159,10 @@ export default function RelaxationScreen() {
                             </View>
                             <View style={styles.textContainer}>
                                 <Text style={[styles.challengeTitle, { color: colors.textPrimary }]}>
-                                    {challenge.title}
+                                    {t(challenge.title)}
                                 </Text>
                                 <Text style={[styles.challengeSubtitle, { color: colors.textSecondary }]}>
-                                    {challenge.subtitle}
+                                    {t(challenge.subtitle)}
                                 </Text>
                             </View>
                         </TouchableOpacity>

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from "react-i18next";
 import {
     Alert,
     Modal,
@@ -33,47 +34,44 @@ const iconOptions = [
     '💉',
     '🏠',
 ];
-
-const repeatOptions = ['Never', 'Everyday', 'Every Week', 'Every Month'];
-
 export default function NewChallengeScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const isEditMode = !!params.id;
 
-    // Get title and icon from params if available
     const defaultTitle = params.title ? String(params.title) : 'Challenge Yourself Today.';
     const defaultIcon = params.icon ? String(params.icon) : '💪';
 
     const [title, setTitle] = useState(defaultTitle);
     const [selectedIcon, setSelectedIcon] = useState(defaultIcon);
-    const [repeat, setRepeat] = useState('Never');
+    const [repeat, setRepeat] = useState('never');
     const [startDate, setStartDate] = useState(new Date());
     const [endDate, setEndDate] = useState(new Date());
     const [reminder, setReminder] = useState('04:07 PM');
 
-    // Modal states
     const [showRepeatModal, setShowRepeatModal] = useState(false);
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [tempDate, setTempDate] = useState(new Date());
     const [tempTime, setTempTime] = useState(new Date());
+    const { t } = useTranslation();
+    const { from } = useLocalSearchParams();
     const { colors, theme } = useTheme();
-
-     useEffect(() => {
+    const repeatOptions = [
+        { key: "never", label: t("never") },
+        { key: "everyday", label: t("everyday") },
+        { key: "every_week", label: t("every_week") },
+        { key: "every_month", label: t("every_month") }
+    ];
+    useEffect(() => {
         NotificationService.requestPermissions();
     }, []);
-
-
-    // Load existing challenge data if editing
     useEffect(() => {
         if (isEditMode && params.id) {
             loadChallengeData(params.id as string);
         }
     }, [params.id]);
-
-    // Update title and icon when params change
     useEffect(() => {
         if (params.title) {
             setTitle(String(params.title));
@@ -82,7 +80,6 @@ export default function NewChallengeScreen() {
             setSelectedIcon(String(params.icon));
         }
     }, [params.title, params.icon]);
-
     const loadChallengeData = async (id: string) => {
         try {
             const challengesData = await AsyncStorage.getItem('challenges');
@@ -102,35 +99,13 @@ export default function NewChallengeScreen() {
             console.error('Error loading challenge:', error);
         }
     };
-
-    // 🔥 Convert reminder time string → Date
-    const parseReminderTime = () => {
-        let [time, ampm] = reminder.split(" ");
-        let [h, m] = time.split(":").map(Number);
-
-        if (ampm === "PM" && h !== 12) h += 12;
-        if (ampm === "AM" && h === 12) h = 0;
-
-        const result = new Date(startDate);
-        result.setHours(h);
-        result.setMinutes(m);
-        result.setSeconds(0);
-
-        return result;
-    };
-
-    // 🔥 Must be future
     const isInFuture = (d: Date) => d.getTime() > Date.now();
-
-    // 🔥 Schedule notification (daily/weekly/monthly supported)
     const scheduleNotification = async (id: string, title: string) => {
         const dt = parseReminderTime();
-
         if (!isInFuture(dt)) {
             Alert.alert("Invalid Time", "Reminder time must be in the future.");
             return null;
         }
-
         return await NotificationService.scheduleChallengeNotification(
             id,
             title,
@@ -155,26 +130,55 @@ export default function NewChallengeScreen() {
         return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
     };
 
-     const handleSave = async () => {
+    // Helper function - make sure this exists
+    const parseReminderTime = () => {
+        let [time, ampm] = reminder.split(" ");
+        let [h, m] = time.split(":").map(Number);
+
+        if (ampm === "PM" && h !== 12) h += 12;
+        if (ampm === "AM" && h === 12) h = 0;
+
+        const result = new Date(startDate);
+        result.setHours(h);
+        result.setMinutes(m);
+        result.setSeconds(0);
+        result.setMilliseconds(0);
+
+        return result;
+    };
+
+    const handleSave = async () => {
         if (!title.trim()) return Alert.alert("Error", "Enter a challenge title");
         if (endDate < startDate) return Alert.alert("Error", "End date cannot be before start date");
 
+        const reminderDateTime = parseReminderTime();
+        const now = new Date();
+        const timeDiff = (reminderDateTime.getTime() - now.getTime()) / 1000;
+
+        console.log('🔔 Reminder DateTime:', reminderDateTime.toISOString());
+        console.log('🕐 Current Time:', now.toISOString());
+        console.log('⏱️ Time Difference (seconds):', timeDiff);
+        if (repeat === 'never' && timeDiff < 5) {
+            Alert.alert(
+                'Invalid Time ⚠️',
+                'Reminder time must be at least 5 seconds in the future. Please select a later time.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
         try {
             let data = await AsyncStorage.getItem('challenges');
             let challenges = data ? JSON.parse(data) : [];
-
             let challengeId = isEditMode ? String(params.id) : Date.now().toString();
 
-            // 🔥 cancel old notification if editing
             if (isEditMode) {
                 const prevId = await AsyncStorage.getItem(`challenge_${challengeId}_notification`);
                 if (prevId) {
                     await NotificationService.cancelNotification(prevId);
                     await AsyncStorage.removeItem(`challenge_${challengeId}_notification`);
+                    console.log('🗑️ Old challenge notification cancelled');
                 }
             }
-
-            // ✏️ Update or Add
             if (isEditMode) {
                 challenges = challenges.map((c: any) =>
                     c.id === challengeId
@@ -189,6 +193,7 @@ export default function NewChallengeScreen() {
                         }
                         : c
                 );
+                console.log('✏️ Challenge updated');
             } else {
                 challenges.push({
                     id: challengeId,
@@ -200,64 +205,112 @@ export default function NewChallengeScreen() {
                     reminder,
                     completed: false,
                 });
+                console.log('➕ New challenge created');
             }
 
-            // 🔔 Create new notification
-            if (repeat !== "Never") {
-                const newNotiId = await scheduleNotification(challengeId, title);
+            console.log('=== Scheduling Challenge Notification ===');
+            console.log('Challenge ID:', challengeId);
+            console.log('Title:', title);
+            console.log('Repeat Type:', repeat);
+            console.log('Reminder Time:', reminderDateTime.toISOString());
 
-                if (newNotiId) {
-                    await AsyncStorage.setItem(
-                        `challenge_${challengeId}_notification`,
-                        newNotiId
-                    );
-                }
+            const newNotiId = await NotificationService.scheduleChallengeNotification(
+                challengeId,
+                title,
+                `Challenge Reminder: ${title}`,
+                reminderDateTime,
+                repeat
+            );
+            if (newNotiId) {
+                await AsyncStorage.setItem(
+                    `challenge_${challengeId}_notification`,
+                    newNotiId
+                );
+                console.log('Challenge notification scheduled successfully!');
+                console.log('Notification ID:', newNotiId);
+            } else {
+                console.error('Failed to schedule challenge notification');
             }
-
             await AsyncStorage.setItem('challenges', JSON.stringify(challenges));
-            router.back();
+            console.log('Challenge data saved');
+
+            if (newNotiId) {
+                const repeatMessage =
+                    repeat === 'everyday' ? 'Daily reminder set!' :
+                        repeat === 'every_week' ? 'Weekly reminder set!' :
+                            repeat === 'every_month' ? 'Monthly reminder set!' :
+                                'One-time reminder set!';
+                Alert.alert(
+                    'Success',
+                    `Challenge saved! ${repeatMessage}`,
+                    [{ text: 'OK', onPress: () => router.back() }]
+                );
+            } else {
+                router.back();
+            }
         } catch (err) {
-            console.log(err);
+            console.error('Error saving challenge:', err);
             Alert.alert("Error", "Failed to save challenge");
         }
     };
-
     const handleStartDateConfirm = () => {
         setStartDate(tempDate);
-
         if (endDate < tempDate) {
             setEndDate(tempDate);
         }
-
         setShowStartDatePicker(false);
     };
-
     const handleEndDateConfirm = () => {
         if (tempDate < startDate) {
             Alert.alert('Invalid Date', 'End date cannot be before start date');
             return;
         }
-
         setEndDate(tempDate);
         setShowEndDatePicker(false);
     };
-
     const handleTimeConfirm = () => {
         setReminder(formatTime(tempTime));
         setShowTimePicker(false);
     };
+    const getRepeatLabel = () => {
+        const found = repeatOptions.find(o => o.key === repeat);
+        return found ? found.label : repeat;
+    };
+    const handleBackPress = async () => {
+        try {
+            if (from === "challenge/new") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        } catch (error) {
+            console.error("Error showing back ad:", error);
+            if (from === "challenge/new") {
+                router.replace("/challenge/create");
+            } else {
+                router.replace("/challenge/create");
+            }
+        }
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()}>
-                    <Feather name="arrow-left" size={24} style={[{ color: colors.textPrimary  }]}/>
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.textPrimary  }]}>
-                    {isEditMode ? 'Edit Challenge' : 'New Challenge'}
-                </Text>
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                    <Text style={styles.saveButtonText}>SAVE</Text>
+            <View style={[styles.header, { backgroundColor: colors.background }]}>
+                <View style={styles.leftContainer}>
+                    <TouchableOpacity
+                         onPress={handleBackPress}
+                        style={styles.backButton}
+                    >
+                        <Feather name="arrow-left" size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
+
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                        {isEditMode ? t("edit_challenge") : t("new_challenge")}
+                    </Text>
+                </View>
+
+                <TouchableOpacity onPress={handleSave} style={[styles.saveButton]}>
+                    <Text style={styles.saveText}>{isEditMode ? t('updated') : t('save')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -265,7 +318,7 @@ export default function NewChallengeScreen() {
                 <View style={styles.titleSection}>
                     <TextInput
                         style={[styles.titleInput, { color: colors.textPrimary }]}
-                        value={title}
+                        value={t(title)}
                         onChangeText={setTitle}
                         placeholder="Challenge title"
                         placeholderTextColor="#888"
@@ -274,7 +327,7 @@ export default function NewChallengeScreen() {
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>Choose icon</Text>
+                    <Text style={[styles.label, { color: colors.textPrimary }]}>{t("choose_icon")}</Text>
                     <View style={[styles.iconGrid, { backgroundColor: colors.background }]}>
                         {iconOptions.map((icon) => (
                             <TouchableOpacity
@@ -293,20 +346,23 @@ export default function NewChallengeScreen() {
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>Repeat</Text>
+                    <Text style={[styles.label, { color: colors.textPrimary }]}>{t("repeat")}</Text>
                     <TouchableOpacity
-                        style={[styles.inputContainer, { backgroundColor: colors.cardBackground}]}
+                        style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
                         onPress={() => setShowRepeatModal(true)}
                     >
-                        <Feather name="repeat" size={20} color="#888"/>
-                        <Text style={[styles.inputText, { color: colors.textPrimary }]}>{repeat}</Text>
-                        <Feather name="chevron-right" size={20} color="#888"/>
+                        <Feather name="repeat" size={20} color="#888" />
+                        <Text style={[styles.inputText, { color: colors.textPrimary }]}>
+                            {getRepeatLabel()}
+                        </Text>
+
+                        <Feather name="chevron-right" size={20} color="#888" />
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.row}>
                     <View style={styles.halfSection}>
-                        <Text style={[styles.label, { color: colors.textPrimary }]}>Start Date</Text>
+                        <Text style={[styles.label, { color: colors.textPrimary }]}>{t("start_date")}</Text>
                         <TouchableOpacity
                             style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
                             onPress={() => {
@@ -320,7 +376,7 @@ export default function NewChallengeScreen() {
                     </View>
 
                     <View style={styles.halfSection}>
-                        <Text style={[styles.label, { color: colors.textPrimary }]}>End date</Text>
+                        <Text style={[styles.label, { color: colors.textPrimary }]}>{t("end_date")}</Text>
                         <TouchableOpacity
                             style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
                             onPress={() => {
@@ -335,7 +391,7 @@ export default function NewChallengeScreen() {
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>Reminder</Text>
+                    <Text style={[styles.label, { color: colors.textPrimary }]}>{t("reminder")}</Text>
                     <TouchableOpacity
                         style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
                         onPress={() => {
@@ -370,33 +426,34 @@ export default function NewChallengeScreen() {
                     onPress={() => setShowRepeatModal(false)}
                 >
                     <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Repeat</Text>
-                        {repeatOptions.map((option) => (
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("repeat")}</Text>
+                        {repeatOptions.map((item) => (
                             <TouchableOpacity
-                                key={option}
+                                key={item.key}
                                 style={[
                                     styles.modalOption,
-                                    repeat === option && {
+                                    repeat === item.key && {
                                         backgroundColor: colors.border,
                                         borderRadius: 8,
                                         paddingHorizontal: 12,
                                     },
                                 ]}
                                 onPress={() => {
-                                    setRepeat(option);
+                                    setRepeat(item.key);
                                     setShowRepeatModal(false);
-                                    
+
                                 }}
                             >
                                 <Text
                                     style={[
                                         styles.modalOptionText,
-                                        repeat === option && styles.modalOptionTextSelected,
+                                        { color: colors.textPrimary },
+                                        repeat === item.key && styles.modalOptionTextSelected,
                                     ]}
                                 >
-                                    {option}
+                                    {item.label}
                                 </Text>
-                                {repeat === option && (
+                                {repeat === item.key && (
                                     <Feather name="check" size={20} color="#FF5252" />
                                 )}
                             </TouchableOpacity>
@@ -418,7 +475,7 @@ export default function NewChallengeScreen() {
                     onPress={() => setShowStartDatePicker(false)}
                 >
                     <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
-                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Start Date</Text>
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_start_date")}</Text>
                         <DateTimePicker
                             value={tempDate}
                             mode="date"
@@ -429,7 +486,7 @@ export default function NewChallengeScreen() {
                                 }
                             }}
                             minimumDate={new Date()}
-                            textColor= {colors.textPrimary}
+                            textColor={colors.textPrimary}
                             style={[styles.datePicker]}
                         />
                         <View style={styles.modalButtons}>
@@ -437,13 +494,13 @@ export default function NewChallengeScreen() {
                                 style={styles.modalButton}
                                 onPress={() => setShowStartDatePicker(false)}
                             >
-                                <Text style={styles.modalButtonText}>Cancel</Text>
+                                <Text style={styles.modalButtonText}>{t("cancel")}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.modalButton, styles.modalButtonPrimary]}
                                 onPress={handleStartDateConfirm}
                             >
-                                <Text style={styles.modalButtonTextPrimary}>OK</Text>
+                                <Text style={styles.modalButtonTextPrimary}>{t("ok")}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -463,7 +520,7 @@ export default function NewChallengeScreen() {
                     onPress={() => setShowEndDatePicker(false)}
                 >
                     <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
-                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select End Date</Text>
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_end_date")}</Text>
                         <DateTimePicker
                             value={tempDate}
                             mode="date"
@@ -483,13 +540,13 @@ export default function NewChallengeScreen() {
                                 style={styles.modalButton}
                                 onPress={() => setShowEndDatePicker(false)}
                             >
-                                <Text style={styles.modalButtonText}>Cancel</Text>
+                                <Text style={styles.modalButtonText}>{t("cancel")}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.modalButton, styles.modalButtonPrimary]}
                                 onPress={handleEndDateConfirm}
                             >
-                                <Text style={styles.modalButtonTextPrimary}>OK</Text>
+                                <Text style={styles.modalButtonTextPrimary}>{t("ok")}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -509,7 +566,7 @@ export default function NewChallengeScreen() {
                     onPress={() => setShowTimePicker(false)}
                 >
                     <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
-                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Select Reminder Time</Text>
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_reminder_time")}</Text>
                         <DateTimePicker
                             value={tempTime}
                             mode="time"
@@ -527,13 +584,13 @@ export default function NewChallengeScreen() {
                                 style={styles.modalButton}
                                 onPress={() => setShowTimePicker(false)}
                             >
-                                <Text style={styles.modalButtonText}>Cancel</Text>
+                                <Text style={styles.modalButtonText}>{t("cancel")}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.modalButton, styles.modalButtonPrimary]}
                                 onPress={handleTimeConfirm}
                             >
-                                <Text style={styles.modalButtonTextPrimary}>OK</Text>
+                                <Text style={styles.modalButtonTextPrimary}>{t("ok")}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -546,15 +603,12 @@ export default function NewChallengeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // backgroundColor: '#000',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: 16,
-        // borderBottomWidth: 1,
-        // borderBottomColor: '#1a1a1a',
     },
     headerTitle: {
         fontSize: 18,
@@ -578,17 +632,28 @@ const styles = StyleSheet.create({
     titleSection: {
         marginBottom: 24,
     },
+    backButton: {
+        padding: 4,
+        marginRight: 10,
+    },
+    saveText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
     titleInput: {
         fontSize: 16,
-        // fontWeight: 'bold',
         color: '#fff',
         paddingVertical: 8,
     },
+    leftContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
     statusIndicator: {
         width: 40,
-        // height: ,
         borderRadius: 2,
-        // marginTop: 8,
     },
     section: {
         marginBottom: 24,
@@ -608,7 +673,6 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 12,
-        // backgroundColor: '#1a1a1a',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
@@ -616,7 +680,6 @@ const styles = StyleSheet.create({
     },
     iconButtonSelected: {
         borderColor: '#FF5252',
-        // backgroundColor: '#2a1a1a',
     },
     iconText: {
         fontSize: 28,
@@ -624,7 +687,6 @@ const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        // backgroundColor: '#1a1a1a',
         borderRadius: 12,
         padding: 16,
         gap: 12,
@@ -658,7 +720,6 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: '600',
-        // color: '#fff',
         marginBottom: 16,
     },
     modalOption: {
@@ -666,8 +727,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: 16,
-        // borderBottomWidth: 1,
-        // borderBottomColor: '#2a2a2a',
     },
     modalOptionSelected: {
         backgroundColor: Colors.dark.background,
@@ -676,14 +735,12 @@ const styles = StyleSheet.create({
     },
     modalOptionText: {
         fontSize: 16,
-        // color: '#fff',
     },
     modalOptionTextSelected: {
         color: '#FF5252',
         fontWeight: '600',
     },
     datePickerModal: {
-        // backgroundColor: '#1a1a1a',
         borderRadius: 16,
         padding: 20,
         width: '90%',

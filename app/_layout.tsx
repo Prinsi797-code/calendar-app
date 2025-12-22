@@ -5,7 +5,7 @@ import { useNavigation, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import React, { useState } from 'react';
 import { useTranslation } from "react-i18next";
-import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, InteractionManager, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
@@ -19,22 +19,23 @@ function CustomHeader() {
 
   return (
     <View style={[styles.header, { backgroundColor: colors.background }]}>
-      <TouchableOpacity
-        style={styles.menuButton}
-        onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-      >
-        <Text style={[styles.menuIcon, { color: colors.textPrimary }]}>☰</Text>
-      </TouchableOpacity>
+      <View style={styles.leftContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+          style={styles.backButton}
+        >
+          <Feather name="menu" size={26} color={colors.textPrimary} />
+        </TouchableOpacity>
 
-      {/* <Text style={[styles.yearText, { color: colors.textPrimary }]}>2025</Text> */}
-      <Text style={[styles.yearText, { color: colors.textPrimary }]}>
-        {currentYear}
-      </Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {currentYear}
+        </Text>
+      </View>
 
       <View style={styles.rightIcons}>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => router.push('/search')} // Add this line
+          onPress={() => router.push('/search')}
         >
           <Feather
             name="search"
@@ -57,6 +58,7 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
   const { colors } = useTheme();
   const [selectedDay, setSelectedDay] = useState<number>(0);
   const { t } = useTranslation();
+  
   React.useEffect(() => {
     loadFirstDay();
   }, [visible]);
@@ -87,10 +89,9 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
       <View style={styles.modalOverlay}>
         <View style={[styles.firstDayModal, { backgroundColor: colors.background }]}>
           <Text style={[styles.firstDayTitle, { color: colors.textPrimary }]}>
-            First Day of Week
+            {t("first_day_of_week")}
           </Text>
 
-          {/* Sunday */}
           <TouchableOpacity
             style={styles.radioOption}
             onPress={() => setSelectedDay(0)}
@@ -100,10 +101,9 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
                 <View style={[styles.radioSelected, { backgroundColor: colors.primary }]} />
               )}
             </View>
-            <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>Sunday</Text>
+            <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>{t("Sunday")}</Text>
           </TouchableOpacity>
 
-          {/* Monday */}
           <TouchableOpacity
             style={styles.radioOption}
             onPress={() => setSelectedDay(1)}
@@ -113,10 +113,9 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
                 <View style={[styles.radioSelected, { backgroundColor: colors.primary }]} />
               )}
             </View>
-            <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>Monday</Text>
+            <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>{t("Monday")}</Text>
           </TouchableOpacity>
 
-          {/* Saturday */}
           <TouchableOpacity
             style={styles.radioOption}
             onPress={() => setSelectedDay(6)}
@@ -126,17 +125,16 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
                 <View style={[styles.radioSelected, { backgroundColor: colors.primary }]} />
               )}
             </View>
-            <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>Saturday</Text>
+            <Text style={[styles.radioLabel, { color: colors.textPrimary }]}>{t("Saturday")}</Text>
           </TouchableOpacity>
 
-          {/* Buttons */}
           <View style={styles.firstDayButtons}>
             <TouchableOpacity
               style={[styles.firstDayButton, { backgroundColor: colors.cardBackground }]}
               onPress={onClose}
             >
               <Text style={[styles.firstDayButtonText, { color: colors.textPrimary }]}>
-                Cancel
+                {t("cancel")}
               </Text>
             </TouchableOpacity>
 
@@ -145,7 +143,7 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
               onPress={handleOk}
             >
               <Text style={[styles.firstDayButtonText, { color: '#FFFFFF' }]}>
-                OK
+                {t("ok")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -160,6 +158,14 @@ function DrawerContent({ navigation }: any) {
   const { colors } = useTheme();
   const [showFirstDaySelector, setShowFirstDaySelector] = useState(false);
   const currentYear = new Date().getFullYear();
+  const today = new Date();
+
+  const currentDate =
+    today.getDate() < 10 ? `0${today.getDate()}` : today.getDate();
+
+  const currentDay = today.toLocaleDateString("en-US", { weekday: "long" });
+  const currentMonthName = today.toLocaleDateString("en-US", { month: "long" });
+
   const { t } = useTranslation();
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -182,42 +188,58 @@ function DrawerContent({ navigation }: any) {
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
+  const handleWeekClick = () => {
+    router.push('/week');
+    navigation.dispatch(DrawerActions.closeDrawer());
+  };
+
   const handleSettingsClick = () => {
     router.push('/settings');
     navigation.dispatch(DrawerActions.closeDrawer());
   };
+  
   const handleCountryClick = () => {
     router.push("/country");
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
   const handlelanguageClick = () => {
-    router.push("/languages");
+    router.push("/language");
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
   const handleFirstDayClick = () => {
     navigation.dispatch(DrawerActions.closeDrawer());
-    setTimeout(() => {
+    InteractionManager.runAfterInteractions(() => {
       setShowFirstDaySelector(true);
-    }, 50);
+    });
   };
 
   const handleFirstDaySelect = (day: number) => {
-    console.log('First day selected:', day);
+    global.firstDayChanged?.(day);
   };
 
   return (
     <>
       <ScrollView style={[styles.drawerContent, { backgroundColor: colors.background }]}>
-        <View style={[styles.drawerHeader]}>
-          <Text style={[styles.drawerTitle, { color: colors.textPrimary }]}>Calendar {currentYear}</Text>
+        <View style={styles.drawerHeader}>
+          <View style={styles.dateRow}>
+            <View style={styles.dateBox}>
+              <Text style={[styles.dateNumber, { color: colors.textPrimary }]}>{currentDate}</Text>
+            </View>
+            <View style={{ marginLeft: 12 }}>
+              <Text style={[styles.dayText, { color: colors.textPrimary }]}>
+                {t(currentDay)}
+              </Text>
+              <Text style={[styles.monthYearText, { color: colors.textTertiary }]}>
+                {t(currentMonthName)} {currentYear}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.separator} />
         </View>
 
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          onPress={handleYearClick}
-        >
+        <TouchableOpacity style={[styles.menuItem]} onPress={handleYearClick}>
           <Image
             source={require('../assets/icons/Vector.png')}
             style={styles.menuIconImage}
@@ -226,80 +248,73 @@ function DrawerContent({ navigation }: any) {
           <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>{t("year")}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          onPress={handleMonthClick}
-        >
+        <TouchableOpacity style={[styles.menuItem]} onPress={handleMonthClick}>
           <Image
             source={require('../assets/icons/Vector1.png')}
             style={styles.menuIconImage}
             resizeMode="contain"
           />
-          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>Month</Text>
+          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>{t("month")}</Text>
           <Text style={[styles.menuSubtext, { color: colors.textTertiary }]}>
             {months[currentMonth]} {currentYear}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          onPress={handleHolidaysClick}
-        >
+        {/* <TouchableOpacity style={[styles.menuItem]} onPress={handleWeekClick}>
           <Image
             source={require('../assets/icons/Vector2.png')}
             style={styles.menuIconImage}
             resizeMode="contain"
           />
-          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>Holidays</Text>
+          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>Weeks</Text>
+        </TouchableOpacity> */}
+
+        <TouchableOpacity style={[styles.menuItem]} onPress={handleHolidaysClick}>
+          <Image
+            source={require('../assets/icons/Vector2.png')}
+            style={styles.menuIconImage}
+            resizeMode="contain"
+          />
+          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>{t("holidays")}</Text>
         </TouchableOpacity>
 
-        {/* First Day of Week */}
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          onPress={handleFirstDayClick}
-        >
+        <TouchableOpacity style={[styles.menuItem]} onPress={handleFirstDayClick}>
           <Image
             source={require('../assets/icons/firstday.png')}
             style={styles.menuIconImage}
             resizeMode="contain"
           />
-          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>First Day of Week</Text>
+          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>{t("first_day_of_week")}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          onPress={handleCountryClick}
-        >
+        <TouchableOpacity style={[styles.menuItem]} onPress={handleCountryClick}>
           <Image source={require('../assets/icons/country.png')} style={styles.menuIconImage} />
           <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>
-            Country
+            {t("country")}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          onPress={handlelanguageClick}
-        >
+        <TouchableOpacity style={[styles.menuItem]} onPress={handlelanguageClick}>
           <Image source={require('../assets/icons/language.png')} style={styles.menuIconImage} />
           <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>
             {t("language")}
           </Text>
         </TouchableOpacity>
 
-
-        <TouchableOpacity
-          style={[styles.menuItem, { borderBottomColor: colors.border }]}
-          onPress={handleSettingsClick}
-        >
+        <TouchableOpacity style={[styles.menuItem]} onPress={handleSettingsClick}>
           <Image
             source={require('../assets/icons/Icon1.png')}
             style={styles.menuIconImage}
             resizeMode="contain"
           />
-          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>Settings</Text>
+          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>{t("settings")}</Text>
         </TouchableOpacity>
-      </ScrollView>
 
+      </ScrollView>
+      <Image
+        source={require("../assets/images/bottom-flower.png")}
+        style={styles.bottomFixedImage}
+      />
       <FirstDaySelector
         visible={showFirstDaySelector}
         onClose={() => setShowFirstDaySelector(false)}
@@ -329,6 +344,7 @@ function DrawerNavigator() {
         options={{
           drawerLabel: 'Calendar',
           title: 'Calendar',
+          // YEH IMPORTANT HAI - Custom header ko hamesha show karega
           header: () => <CustomHeader />,
           headerShown: true,
         }}
@@ -340,7 +356,19 @@ function DrawerNavigator() {
         }}
       />
       <Drawer.Screen
+        name="week"
+        options={{
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
         name="holidays"
+        options={{
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="language"
         options={{
           drawerItemStyle: { display: 'none' },
         }}
@@ -360,7 +388,7 @@ function DrawerNavigator() {
       <Drawer.Screen
         name="diary"
         options={{
-          headerShown: false, // Add this line
+          headerShown: false,
         }}
       />
     </Drawer>
@@ -384,20 +412,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: 50,
+    paddingTop: 60,
   },
   menuButton: {
     padding: 8,
   },
   menuIcon: {
     fontSize: 24,
+    marginTop: 5
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 10,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dateNumber: {
+    fontSize: 26,
+    fontWeight: "bold",
+  },
+  dayText: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  monthYearText: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  separator: {
+    marginTop: 20,
+    height: 1,
+    backgroundColor: "#333",
+  },
+  leftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   yearText: {
     fontSize: 20,
     fontWeight: 'bold',
     flex: 1,
+    marginTop: 4,
     textAlign: 'center',
-    marginRight: 160,
+    marginRight: 170,
   },
   rightIcons: {
     flexDirection: 'row',
@@ -409,6 +469,10 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
   },
   dateBox: {
     flexDirection: 'row',
@@ -434,6 +498,14 @@ const styles = StyleSheet.create({
   drawerContent: {
     flex: 1,
   },
+  bottomFixedImage: {
+    position: "absolute",
+    bottom: 5,
+    right: -30,
+    width: "100%",
+    height: 180,
+    resizeMode: "contain",
+  },
   drawerHeader: {
     padding: 20,
     paddingTop: 70,
@@ -451,7 +523,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
   },
   menuIconImage: {
     width: 20,
@@ -471,7 +542,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginRight: 8,
   },
-
   // First Day Selector Modal
   modalOverlay: {
     flex: 1,

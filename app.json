@@ -1,15 +1,17 @@
 {
   "expo": {
-    "name": "CalendarAppv2",
-    "slug": "CalendarAppv2",
+    "name": "CalendarApp",
+    "slug": "calendarapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon/logo.png",
-    "scheme": "calendarappv2",
+    "icon": "./assets/icons/logo.png",
+    "owner": "hevin202",
+    "scheme": "calendarapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "displayName": "Calendar2025",
       "bundleIdentifier": "CalanderApp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -27,14 +29,15 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/icon/logo.png"
+      "favicon": "./assets/icons/logo.png"
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/icon/logo.png",
+          "image": "./assets/icons/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -43,7 +46,8 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -52,7 +56,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d5c31640-60ab-41f0-9661-770fdf832fd2"
+        "projectId": "57fb9af6-f2c4-40f4-b30d-148f39d57a65"
       }
     }
   }
