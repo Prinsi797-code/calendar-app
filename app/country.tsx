@@ -1,29 +1,40 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FlatList,
   Image,
+  InteractionManager,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import {
+  BannerAdSize,
+  GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../contexts/ThemeContext';
 import { COUNTRIES } from "../data/countries";
+import AdsManager from '../services/adsManager';
 
 export default function Country({ navigation }: any) {
   const router = useRouter();
   const { colors } = useTheme();
-  const [selected, setSelected] = useState<string[]>(["Afghanistan"]);
   const [search, setSearch] = useState("");
   const { t } = useTranslation();
   const [showSearch, setShowSearch] = useState(false);
+  const searchParams = useLocalSearchParams();
   const [filtered, setFiltered] = useState(COUNTRIES);
   const [isSearch, setIsSearch] = useState(false);
+  const SELECTED_COUNTRY_KEY = 'selectedCountry';
+  const [selected, setSelected] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false); // ⭐ Add loading state
 
   useEffect(() => {
     setFiltered(
@@ -32,6 +43,62 @@ export default function Country({ navigation }: any) {
       )
     );
   }, [search]);
+
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
+  }, []);
+
+  // ⭐ FIX 1: Add timeout to useFocusEffect
+  useFocusEffect(
+    React.useCallback(() => {
+      InteractionManager.runAfterInteractions(() => {
+        loadSavedCountry();
+      });
+    }, [])
+  );
+
+  const loadSavedCountry = async () => {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Load timeout')), 2000)
+      );
+      const loadPromise = AsyncStorage.getItem(SELECTED_COUNTRY_KEY);
+
+      const savedCountry = await Promise.race([loadPromise, timeoutPromise]) as string | null;
+      
+      console.log('📱 Loaded country on focus:', savedCountry);
+      if (savedCountry) {
+        setSelected([savedCountry]);
+      } else {
+        setSelected(['Afghanistan']);
+      }
+    } catch (error) {
+      console.log('Error loading country:', error);
+      setSelected(['Afghanistan']);
+    }
+  };
+
+  // ⭐ FIX 2: Non-blocking back press
+  const handleBackPress = async () => {
+    // Navigate immediately
+    if (searchParams?.from === "/") {
+      router.replace("/");
+    } else {
+      router.back();
+    }
+
+    // ⭐ Show ad in background (fire and forget)
+    InteractionManager.runAfterInteractions(() => {
+      AdsManager.showBackButtonAd('country').catch(console.error);
+    });
+  };
 
   const toggleSelect = (countryName: string) => {
     const isSelected = selected.includes(countryName);
@@ -44,13 +111,44 @@ export default function Country({ navigation }: any) {
     }
   };
 
-  const saveCountries = () => {
+  // ⭐ FIX 3: Non-blocking save
+  const saveCountries = async () => {
+    if (isSaving) return;
+    
     const selectedCountry = selected[0];
-    router.push({
-      pathname: '/holidays',
-      params: { country: selectedCountry }
-    });
-    // router.back();
+    setIsSaving(true);
+
+    try {
+      // Save immediately (with timeout)
+      const savePromise = AsyncStorage.setItem(SELECTED_COUNTRY_KEY, selectedCountry);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Save timeout')), 2000)
+      );
+
+      await Promise.race([savePromise, timeoutPromise]);
+      console.log('✅ Country saved:', selectedCountry);
+
+      // Navigate immediately
+      router.push({
+        pathname: '/holidays',
+        params: { country: selectedCountry }
+      });
+
+      // ⭐ Show ad in background
+      InteractionManager.runAfterInteractions(() => {
+        AdsManager.showInterstitialAd('splash_to_language').catch(console.error);
+      });
+
+    } catch (error) {
+      console.log('❌ Error saving country:', error);
+      // Still navigate even if save failed
+      router.push({
+        pathname: '/holidays',
+        params: { country: selectedCountry }
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderCountry = ({ item }: any) => {
@@ -77,14 +175,9 @@ export default function Country({ navigation }: any) {
       <View style={styles.header}>
         {!isSearch && (
           <>
-            {/* <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Text style={[styles.backIcon, { color: colors.textPrimary }]}>←</Text>
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("select_country")}</Text> */}
-
             <View style={styles.leftContainer}>
               <TouchableOpacity
-                onPress={() => router.back()}
+                onPress={handleBackPress}
                 style={styles.backButton}>
                 <Feather name="arrow-left" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
@@ -97,14 +190,13 @@ export default function Country({ navigation }: any) {
               <TouchableOpacity onPress={() => setIsSearch(true)} style={{ marginRight: 20 }}>
                 <Feather name="search" size={24} style={[{ color: colors.textPrimary }]} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={saveCountries}>
+              <TouchableOpacity onPress={saveCountries} disabled={isSaving}>
                 <Feather name="check" size={26} style={[{ color: colors.textPrimary }]} />
               </TouchableOpacity>
             </View>
           </>
         )}
 
-        {/* SEARCH MODE */}
         {isSearch && (
           <View style={[styles.searchHeader, { backgroundColor: colors.background }]}>
             <TouchableOpacity onPress={() => { setIsSearch(false); setSearch(""); }}>
@@ -118,14 +210,13 @@ export default function Country({ navigation }: any) {
               style={[styles.searchInput, { color: colors.textPrimary }]}
               autoFocus
             />
-            <TouchableOpacity onPress={saveCountries}>
+            <TouchableOpacity onPress={saveCountries} disabled={isSaving}>
               <Feather name="check" size={26} style={[{ color: colors.textPrimary }]} />
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Selected Tags */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagWrapper}>
         {selected.map((name) => (
           <View key={name} style={[styles.tag, { backgroundColor: colors.cardBackground }]}>
@@ -139,7 +230,6 @@ export default function Country({ navigation }: any) {
         ))}
       </ScrollView>
 
-      {/* Country List */}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.code}
@@ -165,13 +255,27 @@ export default function Country({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 60 }}
       />
+      {bannerConfig?.show && (
+        <View style={styles.stickyAdContainer}>
+          <GAMBannerAd
+            unitId={bannerConfig.id}
+            sizes={[BannerAdSize.FULL_BANNER]}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", paddingHorizontal: 15 },
-
+  stickyAdContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    alignItems: 'center',
+  },
   topBar: {
     marginTop: 70,
     flexDirection: "row",
@@ -270,8 +374,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    // borderBottomWidth: 1,
-    // borderBottomColor: "#eee",
   },
 
   flag: {

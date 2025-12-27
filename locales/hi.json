@@ -306,5 +306,9 @@
     "notifications_disabled": "सूचना बंद कर दी गई है",
     "notifications_enabled": "सूचना चालू कर दी गई है",
     "no_event_yet": "अभी तक कोई इवेंट नहीं",
-    "done": "हो गया"
+    "done": "हो गया",
+    "delete_event_title": "इवेंट हटाएँ",
+    "delete_event_message": "क्या आप वाकई इस इवेंट को हटाना चाहते हैं?",
+    "updated": "अपडेट करें"
+
 }

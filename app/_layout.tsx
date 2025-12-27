@@ -1,13 +1,15 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions } from '@react-navigation/native';
-import { useNavigation, useRouter } from 'expo-router';
+import { useNavigation, useRouter, useSegments } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from "react-i18next";
-import { Image, InteractionManager, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, InteractionManager, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import LocationService from '../services/LocationService';
+import OnboardingService from '../services/OnboardingService';
 
 function CustomHeader() {
   const navigation = useNavigation();
@@ -15,7 +17,32 @@ function CustomHeader() {
   const router = useRouter();
   const formatDate = (d) => (d < 10 ? `0${d}` : d);
   const { currentYear } = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n, ready } = useTranslation();
+
+  const handleDateBoxPress = () => {
+    const state = navigation.getState();
+    const currentRoute = state.routes[state.index].name;
+
+    const refreshTimestamp = Date.now().toString();
+
+    if (currentRoute === 'index') {
+      router.replace({
+        pathname: '/',
+        params: { 
+          refresh: refreshTimestamp,
+          resetToToday: 'true'
+        }
+      });
+    } else {
+      router.push({
+        pathname: '/',
+        params: { 
+          refresh: refreshTimestamp,
+          resetToToday: 'true'
+        }
+      });
+    }
+  };
 
   return (
     <View style={[styles.header, { backgroundColor: colors.background }]}>
@@ -44,11 +71,15 @@ function CustomHeader() {
           />
         </TouchableOpacity>
 
-        <View style={[styles.dateBox]}>
+        <TouchableOpacity
+          style={[styles.dateBox]}
+          onPress={handleDateBoxPress}
+          activeOpacity={0.7}
+        >
           <Text style={[styles.dateText, { color: colors.textPrimary }]}>
             {formatDate(new Date().getDate())}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -57,8 +88,8 @@ function CustomHeader() {
 function FirstDaySelector({ visible, onClose, onSelect }: any) {
   const { colors } = useTheme();
   const [selectedDay, setSelectedDay] = useState<number>(0);
-  const { t } = useTranslation();
-  
+  const { t, i18n, ready } = useTranslation();
+
   React.useEffect(() => {
     loadFirstDay();
   }, [visible]);
@@ -166,7 +197,7 @@ function DrawerContent({ navigation }: any) {
   const currentDay = today.toLocaleDateString("en-US", { weekday: "long" });
   const currentMonthName = today.toLocaleDateString("en-US", { month: "long" });
 
-  const { t } = useTranslation();
+  const { t, i18n, ready } = useTranslation();
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -174,7 +205,12 @@ function DrawerContent({ navigation }: any) {
   const currentMonth = new Date().getMonth();
 
   const handleYearClick = () => {
-    router.push('/year-view');
+    router.push({
+      pathname: '/year-view',
+      params: { 
+        resetYear: 'true'
+      }
+    });
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
@@ -197,7 +233,7 @@ function DrawerContent({ navigation }: any) {
     router.push('/settings');
     navigation.dispatch(DrawerActions.closeDrawer());
   };
-  
+
   const handleCountryClick = () => {
     router.push("/country");
     navigation.dispatch(DrawerActions.closeDrawer());
@@ -260,15 +296,6 @@ function DrawerContent({ navigation }: any) {
           </Text>
         </TouchableOpacity>
 
-        {/* <TouchableOpacity style={[styles.menuItem]} onPress={handleWeekClick}>
-          <Image
-            source={require('../assets/icons/Vector2.png')}
-            style={styles.menuIconImage}
-            resizeMode="contain"
-          />
-          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>Weeks</Text>
-        </TouchableOpacity> */}
-
         <TouchableOpacity style={[styles.menuItem]} onPress={handleHolidaysClick}>
           <Image
             source={require('../assets/icons/Vector2.png')}
@@ -326,6 +353,75 @@ function DrawerContent({ navigation }: any) {
 
 function DrawerNavigator() {
   const { colors } = useTheme();
+  const router = useRouter();
+  const segments = useSegments();
+  const [isReady, setIsReady] = useState(false);
+  const [shouldShowLanguage, setShouldShowLanguage] = useState(false);
+
+  // ✅ Check onboarding status and initialize app
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        console.log('🚀 Initializing app...');
+        
+        // Initialize location detection (runs in background)
+        LocationService.fetchAndSaveUserCountry().then((country) => {
+          if (country) {
+            console.log('✅ User country set to:', country);
+          }
+        }).catch(err => {
+          console.log('❌ Location detection failed:', err);
+        });
+
+        // Check if onboarding is completed
+        const completed = await OnboardingService.isOnboardingCompleted();
+        console.log('🔍 Onboarding completed:', completed);
+
+        if (!completed) {
+          // First time user - show language screen
+          console.log('🌍 First time user - Will show language screen');
+          setShouldShowLanguage(true);
+        }
+
+        // Mark as ready
+        setIsReady(true);
+      } catch (error) {
+        console.error('❌ Error initializing app:', error);
+        // Still mark as ready to prevent infinite loading
+        setIsReady(true);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  // Navigate to language screen after drawer is ready
+  useEffect(() => {
+    if (isReady && shouldShowLanguage) {
+      console.log('🌍 Navigating to language screen');
+      // Small delay to ensure router is ready
+      setTimeout(() => {
+        router.replace('/language');
+      }, 100);
+    }
+  }, [isReady, shouldShowLanguage]);
+
+  // Show loading screen while initializing
+  if (!isReady) {
+    return (
+      <View style={{ 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: colors.background 
+      }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <Drawer
@@ -344,9 +440,15 @@ function DrawerNavigator() {
         options={{
           drawerLabel: 'Calendar',
           title: 'Calendar',
-          // YEH IMPORTANT HAI - Custom header ko hamesha show karega
           header: () => <CustomHeader />,
           headerShown: true,
+        }}
+      />
+      <Drawer.Screen
+        name="language"
+        options={{
+          drawerItemStyle: { display: 'none' },
+          headerShown: false,
         }}
       />
       <Drawer.Screen
@@ -363,12 +465,6 @@ function DrawerNavigator() {
       />
       <Drawer.Screen
         name="holidays"
-        options={{
-          drawerItemStyle: { display: 'none' },
-        }}
-      />
-      <Drawer.Screen
-        name="language"
         options={{
           drawerItemStyle: { display: 'none' },
         }}

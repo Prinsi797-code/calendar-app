@@ -309,5 +309,15 @@
     "notifications_disabled": "Notification Disabled",
     "notifications_enabled": "Notification Enabled",
     "no_event_yet": "No Events Yet",
-    "done": "Done"
+    "done": "Done",
+    "delete_event_title": "Delete Event",
+    "delete_event_message": "Are you sure you want to delete this event?",
+    "updated": "Update",
+
+
+    "end_time_validation": "End time must be after start time",
+    "end_datetime_validation": "End date and time must be after start date and time",
+    "event_details": "Event Details ",
+    "no_results_found": "No Results Found",
+    "event_deleted": "Event deleted successfully"
 }

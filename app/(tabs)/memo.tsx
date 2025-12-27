@@ -63,20 +63,20 @@ export default function MemoScreen() {
   const loadmemo = async () => {
     try {
       const memoData = await AsyncStorage.getItem('memo');
-      console.log('🔄 Memo List Screen focused - Loading memos...');
-      console.log('📦 Raw memo data:', memoData);
+      console.log('Memo List Screen focused - Loading memos...');
+      console.log('Raw memo data:', memoData);
 
       if (memoData) {
         const parsedMemos = JSON.parse(memoData);
-        console.log('✅ Parsed memos:', parsedMemos);
-        console.log('📊 Total memos:', parsedMemos.length);
+        console.log('Parsed memos:', parsedMemos);
+        console.log('Total memos:', parsedMemos.length);
         setMemos(parsedMemos);
       } else {
-        console.log('⚠️ No memo data found!');
+        console.log('No memo data found!');
         setMemos([]);
       }
     } catch (error) {
-      console.error('❌ Error loading memo:', error);
+      console.error('Error loading memo:', error);
     }
   };
 
@@ -187,7 +187,7 @@ export default function MemoScreen() {
     );
   };
 
-  console.log('🎨 Rendering MemoScreen with', memos.length, 'memos');
+  console.log('Rendering MemoScreen with', memos.length, 'memos');
 
   return (
     <>
@@ -250,16 +250,6 @@ export default function MemoScreen() {
                         {formatDate(memo.Date)} {memo.reminder && formatTime(memo.reminder)}
                       </Text>
                     </View>
-
-                    {/* <View style={styles.radioContainer}>
-                      {selectedMemos.includes(memo.id) ? (
-                        <View style={[styles.radioSelected, { borderColor: '#FF6B6B' }]}>
-                          <View style={styles.radioInner} />
-                        </View>
-                      ) : (
-                        <View style={[styles.radioUnselected, { borderColor: colors.textSecondary }]} />
-                      )}
-                    </View> */}
                     <View
                       style={[
                         styles.checkCircle,

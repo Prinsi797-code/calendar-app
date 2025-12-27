@@ -4,7 +4,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from "react-i18next";
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import {
+  BannerAdSize,
+  GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../contexts/ThemeContext';
+import AdsManager from '../services/adsManager';
 import NotificationService from '../services/NotificationService';
 
 const STORAGE_KEYS = {
@@ -18,8 +23,29 @@ const STORAGE_KEYS = {
 export default function NotificationMore() {
   const router = useRouter();
   const { t } = useTranslation();
+  const searchParams = useLocalSearchParams();
   const { from } = useLocalSearchParams();
   const { theme, colors } = useTheme();
+  const BANNER_HEIGHT = 60;
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
+  }, []);
+
+  const handleBackPress = async () => {
+    await AdsManager.showBackButtonAd('notificationmore');
+    if (searchParams?.from === "/notificationmore") {
+      router.replace("/settings");
+    } else {
+      router.replace("/settings");
+    }
+  };
 
   const [notifications, setNotifications] = useState({
     other: true,
@@ -66,7 +92,7 @@ export default function NotificationMore() {
   const cancelNotificationsByType = async (type: string) => {
     try {
       const allScheduled = await NotificationService.getAllScheduledNotifications();
-      
+
       for (const notification of allScheduled) {
         if (notification.content.data?.type === type) {
           await NotificationService.cancelNotification(notification.identifier);
@@ -86,7 +112,7 @@ export default function NotificationMore() {
           }
         }
       }
-      console.log(`✅ All ${type} notifications cancelled`);
+      console.log(`All ${type} notifications cancelled`);
     } catch (error) {
       console.error(`Error cancelling ${type} notifications:`, error);
     }
@@ -94,7 +120,7 @@ export default function NotificationMore() {
 
   const toggleNotification = async (type: keyof typeof notifications) => {
     const newValue = !notifications[type];
-    
+
     if (!newValue) {
       Alert.alert(
         t('confirm'),
@@ -114,7 +140,7 @@ export default function NotificationMore() {
               const storageKey = STORAGE_KEYS[type.toUpperCase() as keyof typeof STORAGE_KEYS];
               await saveNotificationSetting(storageKey, newValue);
               await cancelNotificationsByType(type);
-              
+
               Alert.alert(t('success'), `${type} ${t('notifications_disabled')}`);
             }
           }
@@ -131,22 +157,22 @@ export default function NotificationMore() {
     }
   };
 
-  const handleBackPress = async () => {
-    try {
-      if (from === "notificationmore") {
-        router.replace("/settings");
-      } else {
-        router.replace("/settings");
-      }
-    } catch (error) {
-      console.error("Error showing back ad:", error);
-      if (from === "notificationmore") {
-        router.replace("/settings");
-      } else {
-        router.replace("/settings");
-      }
-    }
-  };
+  // const handleBackPress = async () => {
+  //   try {
+  //     if (from === "notificationmore") {
+  //       router.replace("/settings");
+  //     } else {
+  //       router.replace("/settings");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error showing back ad:", error);
+  //     if (from === "notificationmore") {
+  //       router.replace("/settings");
+  //     } else {
+  //       router.replace("/settings");
+  //     }
+  //   }
+  // };
 
   const NotificationItem = ({
     title,
@@ -222,6 +248,15 @@ export default function NotificationMore() {
           type="diary"
         />
       </ScrollView>
+      {bannerConfig?.show && (
+        <View style={styles.stickyAdContainer}>
+          <GAMBannerAd
+            unitId={bannerConfig.id}
+            sizes={[BannerAdSize.BANNER]}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -229,6 +264,12 @@ export default function NotificationMore() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  stickyAdContainer: {
+    // position: 'absolute',
+    // bottom: 0,
+    width: '100%',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',

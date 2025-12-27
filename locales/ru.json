@@ -307,6 +307,9 @@
     "notifications_disabled": "Уведомления отключены",
     "notifications_enabled": "Уведомления включены",
     "no_event_yet": "Пока нет событий",
-    "done": "Готово"
+    "done": "Готово",
+    "delete_event_title": "Удалить событие",
+    "delete_event_message": "Вы уверены, что хотите удалить это событие?",
+    "updated": "Обновить"
 
 }

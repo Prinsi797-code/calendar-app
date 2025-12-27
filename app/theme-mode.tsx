@@ -1,12 +1,18 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  BannerAdSize,
+  GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../contexts/ThemeContext';
+import AdsManager from '../services/adsManager';
 
 export default function ThemeMode() {
   const router = useRouter();
+  const searchParams = useLocalSearchParams();
   const { from } = useLocalSearchParams();
   const { theme, setTheme, colors } = useTheme();
   const { t } = useTranslation();
@@ -20,22 +26,42 @@ export default function ThemeMode() {
         : t("dark_theme_appleid")
     );
   };
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
+  }, []);
+
   const handleBackPress = async () => {
-    try {
-      if (from === "notificationmore") {
-        router.replace("/settings");
-      } else {
-        router.replace("/settings");
-      }
-    } catch (error) {
-      console.error("Error showing back ad:", error);
-      if (from === "notificationmore") {
-        router.replace("/settings");
-      } else {
-        router.replace("/settings");
-      }
+    await AdsManager.showBackButtonAd('theme-mode');
+    if (searchParams?.from === "/theme-mode") {
+      router.replace("/settings");
+    } else {
+      router.replace("/settings");
     }
   };
+
+  // const handleBackPress = async () => {
+  //   try {
+  //     if (from === "notificationmore") {
+  //       router.replace("/settings");
+  //     } else {
+  //       router.replace("/settings");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error showing back ad:", error);
+  //     if (from === "notificationmore") {
+  //       router.replace("/settings");
+  //     } else {
+  //       router.replace("/settings");
+  //     }
+  //   }
+  // };
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
 
@@ -99,13 +125,27 @@ export default function ThemeMode() {
           </View>
         </TouchableOpacity>
       </View>
+      {bannerConfig?.show && (
+        <View style={styles.stickyAdContainer}>
+          <GAMBannerAd
+            unitId={bannerConfig.id}
+            sizes={[BannerAdSize.BANNER]}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-
+  stickyAdContainer: {
+    // position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

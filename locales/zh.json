@@ -307,6 +307,10 @@
     "notifications_disabled": "通知已禁用",
     "notifications_enabled": "通知已启用",
     "no_event_yet": "暂无事件",
-    "done": "完成"
+    "done": "完成",
+    "delete_event_title": "删除事件",
+    "delete_event_message": "您确定要删除此事件吗？",
+    "updated": "更新"
+
 
 }

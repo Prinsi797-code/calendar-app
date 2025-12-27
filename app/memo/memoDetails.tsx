@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from "react-i18next";
 import {
     Alert,
@@ -13,7 +13,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface Memo {
     id: string;
@@ -31,6 +36,17 @@ export default function MemoDetailsScreen() {
     const params = useLocalSearchParams();
     const { t } = useTranslation();
     const { colors } = useTheme();
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
+
     const [memo, setMemo] = useState<Memo | null>(null);
 
     const loadMemo = async () => {
@@ -245,8 +261,16 @@ export default function MemoDetailsScreen() {
                         </View>
                     </TouchableOpacity>
                 ) : null}
-
             </ScrollView>
+            {bannerConfig?.show && (
+                <View style={styles.stickyAdContainer}>
+                    <GAMBannerAd
+                        unitId={bannerConfig.id}
+                        sizes={[BannerAdSize.BANNER]}
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -254,6 +278,13 @@ export default function MemoDetailsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        marginTop: 20,
+        width: '100%',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',

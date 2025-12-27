@@ -307,5 +307,9 @@
     "notifications_disabled": "Notification désactivée",
     "notifications_enabled": "Notification activée",
     "no_event_yet": "Aucun événement pour le moment",
-    "done": "Terminé"
+    "done": "Terminé",
+    "delete_event_title": "Supprimer l’événement",
+    "delete_event_message": "Êtes-vous sûr de vouloir supprimer cet événement ?",
+    "updated": "Mettre à jour"
+
 }

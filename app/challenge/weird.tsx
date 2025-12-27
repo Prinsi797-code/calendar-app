@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
@@ -10,7 +10,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface ChallengeOption {
     id: string;
@@ -20,66 +25,66 @@ interface ChallengeOption {
 }
 
 const eatChallenges: ChallengeOption[] = [
-  {
-    id: 'job',
-    title: 'find_job_opportunities',
-    subtitle: 'develop_yourself',
-    icon: 'briefcase-search',
-  },
-  {
-    id: 'raise',
-    title: 'raise_pet',
-    subtitle: 'make_you_feel',
-    icon: 'paw',
-  },
-  {
-    id: 'chess',
-    title: 'play_chess',
-    subtitle: 'deepen_focus_elevate',
-    icon: 'chess-knight',
-  },
-  {
-    id: 'party',
-    title: 'have_party',
-    subtitle: 'meet_new_interesting',
-    icon: 'party-popper',
-  },
-  {
-    id: 'painting',
-    title: 'learn_painting',
-    subtitle: 'stimulates_attitude',
-    icon: 'palette',
-  },
-  {
-    id: 'trip',
-    title: 'take_trip',
-    subtitle: 'improves_communication',
-    icon: 'airplane',
-  },
-  {
-    id: 'trees',
-    title: 'plant_trees',
-    subtitle: 'trees_streets_city',
-    icon: 'tree',
-  },
-  {
-    id: 'friends',
-    title: 'make_friends',
-    subtitle: 'open_possibilities',
-    icon: 'account-group',
-  },
-  {
-    id: 'house',
-    title: 'renew_house',
-    subtitle: 'make_stand_out',
-    icon: 'home-edit',
-  },
-  {
-    id: 'talk',
-    title: 'talk_yourself',
-    subtitle: 'your_brain_efficiently',
-    icon: 'chat-processing',
-  },
+    {
+        id: 'job',
+        title: 'find_job_opportunities',
+        subtitle: 'develop_yourself',
+        icon: 'briefcase-search',
+    },
+    {
+        id: 'raise',
+        title: 'raise_pet',
+        subtitle: 'make_you_feel',
+        icon: 'paw',
+    },
+    {
+        id: 'chess',
+        title: 'play_chess',
+        subtitle: 'deepen_focus_elevate',
+        icon: 'chess-knight',
+    },
+    {
+        id: 'party',
+        title: 'have_party',
+        subtitle: 'meet_new_interesting',
+        icon: 'party-popper',
+    },
+    {
+        id: 'painting',
+        title: 'learn_painting',
+        subtitle: 'stimulates_attitude',
+        icon: 'palette',
+    },
+    {
+        id: 'trip',
+        title: 'take_trip',
+        subtitle: 'improves_communication',
+        icon: 'airplane',
+    },
+    {
+        id: 'trees',
+        title: 'plant_trees',
+        subtitle: 'trees_streets_city',
+        icon: 'tree',
+    },
+    {
+        id: 'friends',
+        title: 'make_friends',
+        subtitle: 'open_possibilities',
+        icon: 'account-group',
+    },
+    {
+        id: 'house',
+        title: 'renew_house',
+        subtitle: 'make_stand_out',
+        icon: 'home-edit',
+    },
+    {
+        id: 'talk',
+        title: 'talk_yourself',
+        subtitle: 'your_brain_efficiently',
+        icon: 'chat-processing',
+    },
 ];
 
 export default function EatHealthyScreen() {
@@ -87,12 +92,23 @@ export default function EatHealthyScreen() {
     const { t } = useTranslation();
     const { from } = useLocalSearchParams();
     const { theme, colors } = useTheme();
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
+
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
         router.push({
             pathname: '/challenge/new',
             params: {
-                title: challenge.title,
+                title: t(challenge.title),
                 icon: challenge.icon,
                 category: 'eat'
             }
@@ -162,6 +178,15 @@ export default function EatHealthyScreen() {
                     ))}
                 </View>
             </ScrollView>
+            {bannerConfig?.show && (
+                <View style={styles.stickyAdContainer}>
+                    <GAMBannerAd
+                        unitId={bannerConfig.id}
+                        sizes={[BannerAdSize.BANNER]}
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -169,6 +194,12 @@ export default function EatHealthyScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',

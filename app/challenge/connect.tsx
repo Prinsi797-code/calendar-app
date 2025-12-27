@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
@@ -10,7 +10,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface ChallengeOption {
     id: string;
@@ -20,54 +25,54 @@ interface ChallengeOption {
 }
 
 const eatChallenges: ChallengeOption[] = [
-  {
-    id: 'family',
-    title: 'talk_with_family',
-    subtitle: 'it_build_relationship',
-    icon: 'account-voice',
-  },
-  {
-    id: 'reconnect',
-    title: 'reconnect_old_friends',
-    subtitle: 'you_were_lives_point',
-    icon: 'account-multiple-check',
-  },
-  {
-    id: 'involved',
-    title: 'get_involved_community',
-    subtitle: 'be_proactive_opinions',
-    icon: 'account-group',
-  },
-  {
-    id: 'travel',
-    title: 'travel',
-    subtitle: 'improves_understanding',
-    icon: 'airplane',
-  },
-  {
-    id: 'animals',
-    title: 'save_animals',
-    subtitle: 'keep_them_safe',
-    icon: 'paw',
-  },
-  {
-    id: 'care',
-    title: 'care_for_others',
-    subtitle: 'helps_develop_ability',
-    icon: 'hand-heart',
-  },
-  {
-    id: 'phone',
-    title: 'make_phone_call',
-    subtitle: 'show_care_others',
-    icon: 'phone',
-  },
-  {
-    id: 'Value',
-    title: 'add_value',
-    subtitle: 'help_others_ways',
-    icon: 'plus-circle',
-  },
+    {
+        id: 'family',
+        title: 'talk_with_family',
+        subtitle: 'it_build_relationship',
+        icon: 'account-voice',
+    },
+    {
+        id: 'reconnect',
+        title: 'reconnect_old_friends',
+        subtitle: 'you_were_lives_point',
+        icon: 'account-multiple-check',
+    },
+    {
+        id: 'involved',
+        title: 'get_involved_community',
+        subtitle: 'be_proactive_opinions',
+        icon: 'account-group',
+    },
+    {
+        id: 'travel',
+        title: 'travel',
+        subtitle: 'improves_understanding',
+        icon: 'airplane',
+    },
+    {
+        id: 'animals',
+        title: 'save_animals',
+        subtitle: 'keep_them_safe',
+        icon: 'paw',
+    },
+    {
+        id: 'care',
+        title: 'care_for_others',
+        subtitle: 'helps_develop_ability',
+        icon: 'hand-heart',
+    },
+    {
+        id: 'phone',
+        title: 'make_phone_call',
+        subtitle: 'show_care_others',
+        icon: 'phone',
+    },
+    {
+        id: 'Value',
+        title: 'add_value',
+        subtitle: 'help_others_ways',
+        icon: 'plus-circle',
+    },
 ];
 
 
@@ -76,12 +81,22 @@ export default function EatHealthyScreen() {
     const { from } = useLocalSearchParams();
     const { t } = useTranslation();
     const { theme, colors } = useTheme();
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
         router.push({
             pathname: '/challenge/new',
             params: {
-                title: challenge.title,
+                title: t(challenge.title),
                 icon: challenge.icon,
                 category: 'eat'
             }
@@ -118,7 +133,7 @@ export default function EatHealthyScreen() {
                     </TouchableOpacity>
 
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                         {t("connect_with_others")} 
+                        {t("connect_with_others")}
                     </Text>
                 </View>
             </View>
@@ -151,6 +166,15 @@ export default function EatHealthyScreen() {
                     ))}
                 </View>
             </ScrollView>
+            {bannerConfig?.show && (
+                <View style={styles.stickyAdContainer}>
+                    <GAMBannerAd
+                        unitId={bannerConfig.id}
+                        sizes={[BannerAdSize.BANNER]}
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -158,6 +182,10 @@ export default function EatHealthyScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    stickyAdContainer: {
+        width: '100%',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',

@@ -1,15 +1,40 @@
 import { Feather } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  BannerAdSize,
+  GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../contexts/ThemeContext';
+import AdsManager from '../services/adsManager';
 
 export default function Settings() {
   const router = useRouter();
   const { t } = useTranslation();
+  const searchParams = useLocalSearchParams();
   const { theme, colors } = useTheme();
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
+  }, []);
+
+  const handleBackPress = async () => {
+    await AdsManager.showBackButtonAd('language');
+    if (searchParams?.from === "/") {
+      router.replace("/");
+    } else {
+      router.back();
+    }
+  };
 
   const handleNotifications = () => {
     router.push('/notificationmore');
@@ -69,7 +94,7 @@ export default function Settings() {
       </View> */}
 
       <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("settings")}</Text>
@@ -160,6 +185,15 @@ export default function Settings() {
         </TouchableOpacity>
 
       </ScrollView>
+      {bannerConfig?.show && (
+        <View style={styles.stickyAdContainer}>
+          <GAMBannerAd
+            unitId={bannerConfig.id}
+            sizes={[BannerAdSize.FULL_BANNER]}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -167,6 +201,12 @@ export default function Settings() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  stickyAdContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',

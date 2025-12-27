@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from "react-i18next";
 import {
     Alert,
@@ -13,7 +13,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface Diary {
     id: string;
@@ -31,6 +36,17 @@ export default function DiaryDetailsScreen() {
     const { t } = useTranslation();
     const params = useLocalSearchParams();
     const { colors } = useTheme();
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
+
     const [diary, setDiary] = useState<Diary | null>(null);
 
     const loadDiary = async () => {
@@ -56,7 +72,7 @@ export default function DiaryDetailsScreen() {
 
     const handleDelete = () => {
         Alert.alert(
-             t('delete_diary'),
+            t('delete_diary'),
             t('are_sure_diary_entries'),
             [
                 {
@@ -244,8 +260,16 @@ export default function DiaryDetailsScreen() {
                         </View>
                     </TouchableOpacity>
                 ) : null}
-
             </ScrollView>
+            {bannerConfig?.show && (
+                <View style={styles.stickyAdContainer}>
+                    <GAMBannerAd
+                        unitId={bannerConfig.id}
+                        sizes={[BannerAdSize.BANNER]}
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -260,6 +284,12 @@ const styles = StyleSheet.create({
         paddingVertical: 24,
         borderRadius: 15,
         marginBottom: 10,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',

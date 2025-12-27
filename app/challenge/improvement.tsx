@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
@@ -10,7 +10,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface ChallengeOption {
     id: string;
@@ -87,12 +92,22 @@ export default function EatHealthyScreen() {
     const { from } = useLocalSearchParams();
     const { t } = useTranslation();
     const { theme, colors } = useTheme();
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
         router.push({
             pathname: '/challenge/new',
             params: {
-                title: challenge.title,
+                title: t(challenge.title),
                 icon: challenge.icon,
                 category: 'eat'
             }
@@ -133,7 +148,6 @@ export default function EatHealthyScreen() {
                     </Text>
                 </View>
             </View>
-
             <ScrollView style={styles.scrollView}>
                 <View style={styles.challengesList}>
                     {eatChallenges.map((challenge) => (
@@ -159,10 +173,18 @@ export default function EatHealthyScreen() {
                                 </Text>
                             </View>
                         </TouchableOpacity>
-
                     ))}
                 </View>
             </ScrollView>
+            {bannerConfig?.show && (
+                <View style={styles.stickyAdContainer}>
+                    <GAMBannerAd
+                        unitId={bannerConfig.id}
+                        sizes={[BannerAdSize.BANNER]}
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -170,6 +192,12 @@ export default function EatHealthyScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',

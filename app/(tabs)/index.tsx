@@ -1,7 +1,7 @@
-import { Feather } from '@expo/vector-icons';
+import AdsManager from "@/services/adsManager";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from "react-i18next";
 import { Alert, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -12,9 +12,7 @@ import { loadData, saveData } from '../../utils/storage';
 declare global {
   var firstDayChanged: ((day: number) => void) | undefined;
 }
-
 export { };
-
 const COUNTRY_CALENDAR_IDS: Record<string, string> = {
   'Afghanistan': 'en.afghan#holiday@group.v.calendar.google.com',
   'Albania': 'en.albanian#holiday@group.v.calendar.google.com',
@@ -43,7 +41,199 @@ const COUNTRY_CALENDAR_IDS: Record<string, string> = {
   'Canada': 'en.canadian#holiday@group.v.calendar.google.com',
   'Cape Verde': 'en.cape_verdean#holiday@group.v.calendar.google.com',
   'Cayman Islands': 'en.cayman_islands#holiday@group.v.calendar.google.com',
+  'Central African Republic': 'en.central_african_republic#holiday@group.v.calendar.google.com',
+  'Chad': 'en.chadian#holiday@group.v.calendar.google.com',
+  'Chile': 'en.chilean#holiday@group.v.calendar.google.com',
+  'China': 'en.china#holiday@group.v.calendar.google.com',
+  'Colombia': 'en.colombian#holiday@group.v.calendar.google.com',
+  'Comoros': 'en.comorian#holiday@group.v.calendar.google.com',
+  'Congo - Brazzaville': 'en.congo_brazzaville#holiday@group.v.calendar.google.com',
+  'Congo - Kinshasa': 'en.congo_kinshasa#holiday@group.v.calendar.google.com',
+  'Cook Islands': 'en.cook_islands#holiday@group.v.calendar.google.com',
+  'Costa Rica': 'en.costarican#holiday@group.v.calendar.google.com',
+  'Croatia': 'en.croatian#holiday@group.v.calendar.google.com',
+  'Cuba': 'en.cuban#holiday@group.v.calendar.google.com',
+  'Curaçao': 'en.curacao#holiday@group.v.calendar.google.com',
+  'Cyprus': 'en.cyprus#holiday@group.v.calendar.google.com',
+  'Czechia': 'en.czech#holiday@group.v.calendar.google.com',
+  'Côte d’Ivoire': 'en.cote_d_ivoire#holiday@group.v.calendar.google.com',
+  'Denmark': 'en.danish#holiday@group.v.calendar.google.com',
+  'Djibouti': 'en.djiboutian#holiday@group.v.calendar.google.com',
+  'Dominica': 'en.dominican#holiday@group.v.calendar.google.com',
+  'Dominican Republic': 'en.dominican_republic#holiday@group.v.calendar.google.com',
+  'Ecuador': 'en.ecuadorian#holiday@group.v.calendar.google.com',
+  'Egypt': 'en.egyptian#holiday@group.v.calendar.google.com',
+  'El Salvador': 'en.salvadoran#holiday@group.v.calendar.google.com',
+  'Equatorial Guinea': 'en.equatorial_guinea#holiday@group.v.calendar.google.com',
+  'Eritrea': 'en.eritrean#holiday@group.v.calendar.google.com',
+  'Estonia': 'en.estonian#holiday@group.v.calendar.google.com',
+  'Eswatini': 'en.eswatini#holiday@group.v.calendar.google.com',
+  'Ethiopia': 'en.ethiopian#holiday@group.v.calendar.google.com',
+  'Falkland Islands (Islas Malvinas)': 'en.falkland_islands#holiday@group.v.calendar.google.com',
+  'Faroe Islands': 'en.faroese#holiday@group.v.calendar.google.com',
+  'Fiji': 'en.fijian#holiday@group.v.calendar.google.com',
+  'Finland': 'en.finnish#holiday@group.v.calendar.google.com',
+  'France': 'en.french#holiday@group.v.calendar.google.com',
+  'French Guiana': 'en.french_guiana#holiday@group.v.calendar.google.com',
+  'French Polynesia': 'en.french_polynesia#holiday@group.v.calendar.google.com',
+  'Gabon': 'en.gabonese#holiday@group.v.calendar.google.com',
+  'Gambia': 'en.gambian#holiday@group.v.calendar.google.com',
+  'Georgia': 'en.georgian#holiday@group.v.calendar.google.com',
+  'Germany': 'en.german#holiday@group.v.calendar.google.com',
+  'Ghana': 'en.ghanaian#holiday@group.v.calendar.google.com',
+  'Gibraltar': 'en.gibraltar#holiday@group.v.calendar.google.com',
+  'Greece': 'en.greek#holiday@group.v.calendar.google.com',
+  'Greenland': 'en.greenland#holiday@group.v.calendar.google.com',
+  'Grenada': 'en.grenadian#holiday@group.v.calendar.google.com',
+  'Guadeloupe': 'en.guadeloupe#holiday@group.v.calendar.google.com',
+  'Guam': 'en.guam#holiday@group.v.calendar.google.com',
+  'Guatemala': 'en.guatemalan#holiday@group.v.calendar.google.com',
+  'Guernsey': 'en.guernsey#holiday@group.v.calendar.google.com',
+  'Guinea': 'en.guinean#holiday@group.v.calendar.google.com',
+  'Guinea-Bissau': 'en.guinea_bissau#holiday@group.v.calendar.google.com',
+  'Guyana': 'en.guyanese#holiday@group.v.calendar.google.com',
+  'Haiti': 'en.haitian#holiday@group.v.calendar.google.com',
+  'Honduras': 'en.honduran#holiday@group.v.calendar.google.com',
+  'Hong Kong': 'en.hong_kong#holiday@group.v.calendar.google.com',
+  'Hungary': 'en.hungarian#holiday@group.v.calendar.google.com',
+  'Iceland': 'en.icelandic#holiday@group.v.calendar.google.com',
   'India': 'en.indian#holiday@group.v.calendar.google.com',
+  'Indonesia': 'en.indonesian#holiday@group.v.calendar.google.com',
+  'Iran': 'en.iranian#holiday@group.v.calendar.google.com',
+  'Iraq': 'en.iraqi#holiday@group.v.calendar.google.com',
+  'Ireland': 'en.irish#holiday@group.v.calendar.google.com',
+  'Isle of Man': 'en.isle_of_man#holiday@group.v.calendar.google.com',
+  'Israel': 'en.israeli#holiday@group.v.calendar.google.com',
+  'Italy': 'en.italian#holiday@group.v.calendar.google.com',
+  'Jamaica': 'en.jamaican#holiday@group.v.calendar.google.com',
+  'Japan': 'en.japanese#holiday@group.v.calendar.google.com',
+  'Jersey': 'en.jersey#holiday@group.v.calendar.google.com',
+  'Jordan': 'en.jordanian#holiday@group.v.calendar.google.com',
+  'Kazakhstan': 'en.kazakhstani#holiday@group.v.calendar.google.com',
+  'Kenya': 'en.kenyan#holiday@group.v.calendar.google.com',
+  'Kiribati': 'en.kiribati#holiday@group.v.calendar.google.com',
+  'Kosovo': 'en.kosovo#holiday@group.v.calendar.google.com',
+  'Kuwait': 'en.kuwaiti#holiday@group.v.calendar.google.com',
+  'Kyrgyzstan': 'en.kyrgyzstan#holiday@group.v.calendar.google.com',
+  'Laos': 'en.laos#holiday@group.v.calendar.google.com',
+  'Latvia': 'en.latvian#holiday@group.v.calendar.google.com',
+  'Lebanon': 'en.lebanese#holiday@group.v.calendar.google.com',
+  'Lesotho': 'en.lesotho#holiday@group.v.calendar.google.com',
+  'Liberia': 'en.liberian#holiday@group.v.calendar.google.com',
+  'Libya': 'en.libyan#holiday@group.v.calendar.google.com',
+  'Liechtenstein': 'en.liechtenstein#holiday@group.v.calendar.google.com',
+  'Lithuania': 'en.lithuanian#holiday@group.v.calendar.google.com',
+  'Luxembourg': 'en.luxembourgish#holiday@group.v.calendar.google.com',
+  'Macao': 'en.macao#holiday@group.v.calendar.google.com',
+  'Madagascar': 'en.madagascan#holiday@group.v.calendar.google.com',
+  'Malawi': 'en.malawian#holiday@group.v.calendar.google.com',
+  'Malaysia': 'en.malaysian#holiday@group.v.calendar.google.com',
+  'Maldives': 'en.maldivian#holiday@group.v.calendar.google.com',
+  'Mali': 'en.malian#holiday@group.v.calendar.google.com',
+  'Malta': 'en.maltese#holiday@group.v.calendar.google.com',
+  'Marshall Islands': 'en.marshall_islands#holiday@group.v.calendar.google.com',
+  'Martinique': 'en.martinique#holiday@group.v.calendar.google.com',
+  'Mauritania': 'en.mauritanian#holiday@group.v.calendar.google.com',
+  'Mauritius': 'en.mauritian#holiday@group.v.calendar.google.com',
+  'Mayotte': 'en.mayotte#holiday@group.v.calendar.google.com',
+  'Mexico': 'en.mexican#holiday@group.v.calendar.google.com',
+  'Micronesia': 'en.micronesia#holiday@group.v.calendar.google.com',
+  'Moldova': 'en.moldovan#holiday@group.v.calendar.google.com',
+  'Monaco': 'en.monaco#holiday@group.v.calendar.google.com',
+  'Mongolia': 'en.mongolian#holiday@group.v.calendar.google.com',
+  'Montenegro': 'en.montenegrin#holiday@group.v.calendar.google.com',
+  'Montserrat': 'en.montserrat#holiday@group.v.calendar.google.com',
+  'Morocco': 'en.moroccan#holiday@group.v.calendar.google.com',
+  'Mozambique': 'en.mozambican#holiday@group.v.calendar.google.com',
+  'Myanmar (Burma)': 'en.myanmar#holiday@group.v.calendar.google.com',
+  'Namibia': 'en.namibian#holiday@group.v.calendar.google.com',
+  'Nauru': 'en.nauru#holiday@group.v.calendar.google.com',
+  'Nepal': 'en.nepalese#holiday@group.v.calendar.google.com',
+  'Netherlands': 'en.dutch#holiday@group.v.calendar.google.com',
+  'New Caledonia': 'en.new_caledonia#holiday@group.v.calendar.google.com',
+  'New Zealand': 'en.new_zealand#holiday@group.v.calendar.google.com',
+  'Nicaragua': 'en.nicaraguan#holiday@group.v.calendar.google.com',
+  'Niger': 'en.niger#holiday@group.v.calendar.google.com',
+  'Nigeria': 'en.nigerian#holiday@group.v.calendar.google.com',
+  'Northern Mariana Islands': 'en.northern_mariana_islands#holiday@group.v.calendar.google.com',
+  'North Korea': 'en.north_korea#holiday@group.v.calendar.google.com',
+  'North Macedonia': 'en.north_macedonia#holiday@group.v.calendar.google.com',
+  'Norway': 'en.norwegian#holiday@group.v.calendar.google.com',
+  'Oman': 'en.oman#holiday@group.v.calendar.google.com',
+  'Pakistan': 'en.pakistani#holiday@group.v.calendar.google.com',
+  'Palau': 'en.palau#holiday@group.v.calendar.google.com',
+  'Panama': 'en.panamanian#holiday@group.v.calendar.google.com',
+  'Papua New Guinea': 'en.papua_new_guinea#holiday@group.v.calendar.google.com',
+  'Paraguay': 'en.paraguayan#holiday@group.v.calendar.google.com',
+  'Peru': 'en.peruvian#holiday@group.v.calendar.google.com',
+  'Philippines': 'en.philippines#holiday@group.v.calendar.google.com',
+  'Poland': 'en.polish#holiday@group.v.calendar.google.com',
+  'Portugal': 'en.portuguese#holiday@group.v.calendar.google.com',
+  'Puerto Rico': 'en.puerto_rico#holiday@group.v.calendar.google.com',
+  'Qatar': 'en.qatar#holiday@group.v.calendar.google.com',
+  'Romania': 'en.romanian#holiday@group.v.calendar.google.com',
+  'Russia': 'en.russian#holiday@group.v.calendar.google.com',
+  'Rwanda': 'en.rwandan#holiday@group.v.calendar.google.com',
+  'Réunion': 'en.reunion#holiday@group.v.calendar.google.com',
+  'Samoa': 'en.samoan#holiday@group.v.calendar.google.com',
+  'San Marino': 'en.san_marino#holiday@group.v.calendar.google.com',
+  'Saudi Arabia': 'en.saudiarabian#holiday@group.v.calendar.google.com',
+  'Senegal': 'en.senegalese#holiday@group.v.calendar.google.com',
+  'Serbia': 'en.serbian#holiday@group.v.calendar.google.com',
+  'Seychelles': 'en.seychelles#holiday@group.v.calendar.google.com',
+  'Sierra Leone': 'en.sierra_leone#holiday@group.v.calendar.google.com',
+  'Singapore': 'en.singapore#holiday@group.v.calendar.google.com',
+  'Sint Maarten': 'en.sint_maarten#holiday@group.v.calendar.google.com',
+  'Slovakia': 'en.slovak#holiday@group.v.calendar.google.com',
+  'Slovenia': 'en.slovenian#holiday@group.v.calendar.google.com',
+  'Solomon Islands': 'en.solomon_islands#holiday@group.v.calendar.google.com',
+  'Somalia': 'en.somalian#holiday@group.v.calendar.google.com',
+  'South Africa': 'en.south_africa#holiday@group.v.calendar.google.com',
+  'South Korea': 'en.south_korea#holiday@group.v.calendar.google.com',
+  'South Sudan': 'en.south_sudan#holiday@group.v.calendar.google.com',
+  'Spain': 'en.spanish#holiday@group.v.calendar.google.com',
+  'Sri Lanka': 'en.sri_lanka#holiday@group.v.calendar.google.com',
+  'St. Barthélemy': 'en.st_barthelemy#holiday@group.v.calendar.google.com',
+  'St. Helena': 'en.st_helena#holiday@group.v.calendar.google.com',
+  'St. Kitts & Nevis': 'en.st_kitts_nevis#holiday@group.v.calendar.google.com',
+  'St. Lucia': 'en.st_lucia#holiday@group.v.calendar.google.com',
+  'St. Martin': 'en.st_martin#holiday@group.v.calendar.google.com',
+  'St. Pierre & Miquelon': 'en.st_pierre_miquelon#holiday@group.v.calendar.google.com',
+  'St. Vincent & Grenadines': 'en.st_vincent_grenadines#holiday@group.v.calendar.google.com',
+  'Sudan': 'en.sudan#holiday@group.v.calendar.google.com',
+  'Suriname': 'en.surinamese#holiday@group.v.calendar.google.com',
+  'Sweden': 'en.swedish#holiday@group.v.calendar.google.com',
+  'Switzerland': 'en.swiss#holiday@group.v.calendar.google.com',
+  'Syria': 'en.syrian#holiday@group.v.calendar.google.com',
+  'São Tomé & Príncipe': 'en.sao_tome_principe#holiday@group.v.calendar.google.com',
+  'Taiwan': 'en.taiwan#holiday@group.v.calendar.google.com',
+  'Tajikistan': 'en.tajikistan#holiday@group.v.calendar.google.com',
+  'Tanzania': 'en.tanzanian#holiday@group.v.calendar.google.com',
+  'Thailand': 'en.thai#holiday@group.v.calendar.google.com',
+  'Timor-Leste': 'en.timor_leste#holiday@group.v.calendar.google.com',
+  'Togo': 'en.togolese#holiday@group.v.calendar.google.com',
+  'Tonga': 'en.tongan#holiday@group.v.calendar.google.com',
+  'Trinidad & Tobago': 'en.trinidad_tobago#holiday@group.v.calendar.google.com',
+  'Tunisia': 'en.tunisian#holiday@group.v.calendar.google.com',
+  'Turkey': 'en.turkish#holiday@group.v.calendar.google.com',
+  'Turkmenistan': 'en.turkmenistan#holiday@group.v.calendar.google.com',
+  'Turks & Caicos Islands': 'en.turks_caicos_islands#holiday@group.v.calendar.google.com',
+  'Tuvalu': 'en.tuvalu#holiday@group.v.calendar.google.com',
+  'U.S. Virgin Islands': 'en.us_virgin_islands#holiday@group.v.calendar.google.com',
+  'Uganda': 'en.ugandan#holiday@group.v.calendar.google.com',
+  'Ukraine': 'en.ukrainian#holiday@group.v.calendar.google.com',
+  'United Arab Emirates': 'en.united_arab_emirates#holiday@group.v.calendar.google.com',
+  'United Kingdom': 'en.uk#holiday@group.v.calendar.google.com',
+  'United States': 'en.usa#holiday@group.v.calendar.google.com',
+  'Uruguay': 'en.uruguayan#holiday@group.v.calendar.google.com',
+  'Uzbekistan': 'en.uzbekistan#holiday@group.v.calendar.google.com',
+  'Vanuatu': 'en.vanuatu#holiday@group.v.calendar.google.com',
+  'Venezuela': 'en.venezuelan#holiday@group.v.calendar.google.com',
+  'Vietnam': 'en.vietnamese#holiday@group.v.calendar.google.com',
+  'Wallis & Futuna': 'en.wallis_futuna#holiday@group.v.calendar.google.com',
+  'Yemen': 'en.yemeni#holiday@group.v.calendar.google.com',
+  'Zambia': 'en.zambian#holiday@group.v.calendar.google.com',
+  'Zimbabwe': 'en.zimbabwean#holiday@group.v.calendar.google.com',
 };
 
 export default function CalendarScreen({ navigation }: any) {
@@ -60,6 +250,17 @@ export default function CalendarScreen({ navigation }: any) {
   const [selectedCountry, setSelectedCountry] = useState('India');
   const [loadingHolidays, setLoadingHolidays] = useState(true);
   const { t, i18n } = useTranslation();
+  const lightNoEventImg = require("../../assets/images/no-events.png");
+  const darkNoEventImg = require("../../assets/images/dark-no-event.png");
+
+  const params = useLocalSearchParams();
+  const [calendarKey, setCalendarKey] = useState(0);
+
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
 
   const [currentMonth, setCurrentMonth] = useState({
     month: new Date().getMonth() + 1,
@@ -67,6 +268,33 @@ export default function CalendarScreen({ navigation }: any) {
   });
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const API_KEY = "AIzaSyCbk3aJTWGqJZVHtb3SR7OqzUFEc9Cewe0";
+
+  // Load Banner Ad Config
+  useEffect(() => {
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
+  }, []);
+
+  useEffect(() => {
+    if (params.refresh && params.resetToToday === 'true') {
+      console.log('📅 Resetting calendar to today');
+
+      const today = new Date();
+      const todayString = today.toISOString().split('T')[0];
+
+      setSelectedDate(todayString);
+      setCurrentMonth({
+        month: today.getMonth() + 1,
+        year: today.getFullYear(),
+      });
+      setCurrentYear(today.getFullYear());
+      setShowMonthEvents(false);
+      setCalendarKey(prev => prev + 1);
+
+      console.log('✅ Calendar reset complete:', todayString);
+    }
+  }, [params.refresh, params.resetToToday]);
+
 
   useEffect(() => {
     Animated.loop(
@@ -98,6 +326,57 @@ export default function CalendarScreen({ navigation }: any) {
       inputRange: [0, 1],
       outputRange: [0.6, 0],
     }),
+  };
+
+  const generateRecurringDates = (event: any, endDate: Date) => {
+    const dates: string[] = [];
+    const startDateStr = event.startDate.split('T')[0];
+    const start = new Date(startDateStr + 'T00:00:00');
+    const repeatType = event.repeat;
+
+    if (!repeatType || repeatType === 'Does not repeat' || repeatType === 'does_not') {
+      return [startDateStr];
+    }
+
+    let current = new Date(start);
+    const maxIterations = 3650; // 10 years max
+    let iterations = 0;
+
+    while (current <= endDate && iterations < maxIterations) {
+      dates.push(current.toISOString().split('T')[0]);
+      iterations++;
+
+      switch (repeatType) {
+        case 'Everyday':
+        case 'everyday':
+        case 'daily':
+          current.setDate(current.getDate() + 1);
+          break;
+
+        case 'Every week':
+        case 'every_week':
+        case 'weekly':
+          current.setDate(current.getDate() + 7);
+          break;
+
+        case 'Every month':
+        case 'every_month':
+        case 'monthly':
+          current.setMonth(current.getMonth() + 1);
+          break;
+
+        case 'Every year':
+        case 'every_year':
+        case 'yearly':
+          current.setFullYear(current.getFullYear() + 1);
+          break;
+
+        default:
+          return [startDateStr];
+      }
+    }
+
+    return dates;
   };
 
   useEffect(() => {
@@ -176,55 +455,69 @@ export default function CalendarScreen({ navigation }: any) {
   const loadSelectedCountry = async () => {
     try {
       const country = await AsyncStorage.getItem('selectedCountry');
+      console.log('📅 Calendar - Loading country:', country);
+
       if (country) {
         setSelectedCountry(country);
+        console.log('✅ Fetching holidays for:', country);
         fetchHolidays(country);
       } else {
+        console.log('⚠️ No saved country, using India');
         setSelectedCountry('India');
         fetchHolidays('India');
       }
     } catch (error) {
-      console.log('Error loading country:', error);
+      console.log('❌ Error loading country:', error);
       fetchHolidays('India');
     }
   };
+
 
   const fetchHolidays = async (countryName: string) => {
     setLoadingHolidays(true);
     try {
       const calendarId = COUNTRY_CALENDAR_IDS[countryName];
+      console.log('🔍 Calendar ID for', countryName, ':', calendarId);
 
       if (!calendarId) {
-        console.log(`No calendar found for ${countryName}`);
+        console.log(`❌ No calendar found for ${countryName}`);
         setHolidays([]);
         setLoadingHolidays(false);
         return;
       }
 
       const encodedCalendarId = encodeURIComponent(calendarId);
-      const API_URL = `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events?key=${API_KEY}&timeMin=2024-01-01T00:00:00Z&timeMax=2030-12-31T23:59:59Z&maxResults=1000`;
+      const API_URL = `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events?key=${API_KEY}&timeMin=2024-01-01T00:00:00Z&timeMax=2030-12-31T23:59:59Z&maxResults=1000&singleEvents=true&orderBy=startTime`;
 
+      console.log('📡 Fetching from API...');
       const res = await fetch(API_URL);
       const data = await res.json();
 
       if (data.error) {
-        console.log('API Error:', data.error.message);
+        console.log('❌ API Error:', data.error.message);
         setHolidays([]);
         setLoadingHolidays(false);
         return;
       }
 
       if (data.items) {
+        console.log(`✅ Found ${data.items.length} holidays for ${countryName}`);
+        console.log('First 3 holidays:', data.items.slice(0, 3).map(i => ({
+          date: i.start.date,
+          name: i.summary
+        })));
+
         const formattedHolidays = data.items.map((item: any) => ({
           date: item.start.date,
           name: item.summary,
         }));
         setHolidays(formattedHolidays);
       } else {
+        console.log('⚠️ No holidays found');
         setHolidays([]);
       }
     } catch (err) {
-      console.log('Error fetching holidays:', err);
+      console.log('❌ Error fetching holidays:', err);
       setHolidays([]);
     } finally {
       setLoadingHolidays(false);
@@ -232,30 +525,40 @@ export default function CalendarScreen({ navigation }: any) {
   };
 
   const getRepeatDisplayText = (repeat: string) => {
-    switch (repeat) {
-      case 'Does not repeat':
-        return 'Never';
-      case 'Everyday':
-        return 'Daily';
-      case 'Every week':
-        return 'Weekly';
-      case 'Every month':
-        return 'Monthly';
-      case 'Every year':
-        return 'Yearly';
+    if (!repeat) return t('never');
+
+    switch (repeat.toLowerCase()) {
+      case 'does not repeat':
+      case 'does_not':
+        return t('never');
+      case 'everyday':
+      case 'daily':
+        return t('everyday');
+      case 'every week':
+      case 'every_week':
+      case 'weekly':
+        return t('every_week');
+      case 'every month':
+      case 'every_month':
+      case 'monthly':
+        return t('every_month');
+      case 'every year':
+      case 'every_year':
+      case 'yearly':
+        return t('every_year');
       default:
-        return 'Never';
+        return t('never');
     }
   };
 
   const handleDeleteEvent = async (eventId: string) => {
     Alert.alert(
-      'Delete Event',
-      'Are you sure you want to delete this event?',
+      t('delete_event_title'),
+      t('delete_event_message'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -318,16 +621,80 @@ export default function CalendarScreen({ navigation }: any) {
     const { month, year } = currentMonth;
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
+    const allEvents: any[] = [];
 
-    const monthEvents = events.filter((e) => {
-      const start = new Date(e.startDate);
-      if (e.allDay) {
-        return start <= lastDay;
+    events.forEach((event) => {
+      const repeatType = event.repeat;
+      const eventStartDate = event.startDate.split('T')[0];
+      const eventStart = new Date(eventStartDate + 'T00:00:00');
+
+      if (!repeatType || repeatType === 'Does not repeat' || repeatType === 'does_not') {
+        const eventStartMonth = eventStart.getMonth() + 1;
+        const eventStartYear = eventStart.getFullYear();
+
+        if (event.allDay) {
+          if (eventStartMonth === month && eventStartYear === year) {
+            allEvents.push(event);
+          }
+        } else {
+          const end = new Date(event.endDate.split('T')[0] + 'T00:00:00');
+          if (eventStart <= lastDay && end >= firstDay) {
+            allEvents.push(event);
+          }
+        }
+        return;
       }
-      const end = new Date(e.endDate);
-      return (start <= lastDay && end >= firstDay);
-    });
+      let hasEventInMonth = false;
+      if (eventStart > lastDay) {
+        return;
+      }
 
+      switch (repeatType) {
+        case 'Everyday':
+        case 'everyday':
+        case 'daily':
+          hasEventInMonth = eventStart <= lastDay;
+          break;
+
+        case 'Every week':
+        case 'every_week':
+        case 'weekly':
+          const eventWeekday = eventStart.getDay();
+          let current = new Date(Math.max(firstDay.getTime(), eventStart.getTime()));
+
+          while (current <= lastDay) {
+            if (current.getDay() === eventWeekday) {
+              hasEventInMonth = true;
+              break;
+            }
+            current.setDate(current.getDate() + 1);
+          }
+          break;
+
+        case 'Every month':
+        case 'every_month':
+        case 'monthly':
+          const eventDate = eventStart.getDate();
+          const daysInMonth = lastDay.getDate();
+
+          if (eventDate <= daysInMonth) {
+            hasEventInMonth = true;
+          }
+          break;
+
+        case 'Every year':
+        case 'every_year':
+        case 'yearly':
+          if (eventStart.getMonth() === month - 1) {
+            hasEventInMonth = true;
+          }
+          break;
+      }
+
+      if (hasEventInMonth) {
+        allEvents.push(event);
+      }
+    });
     const monthHolidays = holidays
       .filter((h) => h.date.startsWith(`${year}-${String(month).padStart(2, "0")}`))
       .map((h, index) => ({
@@ -338,67 +705,122 @@ export default function CalendarScreen({ navigation }: any) {
         isHoliday: true,
       }));
 
-    return [...monthHolidays, ...monthEvents];
+    return [...monthHolidays, ...allEvents];
   };
 
   const getMarkedDates = () => {
     const marked: any = {};
     const eventDotsByDate: any = {};
 
+    const formatDateString = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const { month, year } = currentMonth;
+    const startRange = new Date(year, month - 4, 1);
+    const endRange = new Date(year, month + 2, 0);
+
     events.forEach((event) => {
-      let start = new Date(event.startDate);
+      const eventColor = event.color || '#0267FF';
+      const repeatType = event.repeat;
+      const eventStartDate = event.startDate.split('T')[0];
+      const eventStart = new Date(eventStartDate + 'T00:00:00');
 
-      if (event.allDay) {
-        const today = new Date();
-        const futureDate = new Date(today.getFullYear() + 10, 11, 31);
-        let current = new Date(start);
+      // Non-repeating events
+      if (!repeatType || repeatType === 'Does not repeat' || repeatType === 'does_not') {
+        if (!eventDotsByDate[eventStartDate]) {
+          eventDotsByDate[eventStartDate] = [];
+        }
+        eventDotsByDate[eventStartDate].push(eventColor);
+        return;
+      }
 
-        while (current <= futureDate) {
-          const dateString = current.toISOString().split("T")[0];
+      // Repeating events - generate dates within visible range only
+      let current = new Date(Math.max(eventStart.getTime(), startRange.getTime()));
 
+      while (current <= endRange) {
+        // Use the helper function to avoid timezone issues
+        const dateString = formatDateString(current);
+
+        // Check if this date matches the repeat pattern
+        let shouldMark = false;
+
+        switch (repeatType) {
+          case 'Everyday':
+          case 'everyday':
+          case 'daily':
+            shouldMark = current >= eventStart;
+            break;
+
+          case 'Every week':
+          case 'every_week':
+          case 'weekly':
+            shouldMark = current >= eventStart && current.getDay() === eventStart.getDay();
+            break;
+
+          case 'Every month':
+          case 'every_month':
+          case 'monthly':
+            shouldMark = current >= eventStart && current.getDate() === eventStart.getDate();
+            break;
+
+          case 'Every year':
+          case 'every_year':
+          case 'yearly':
+            shouldMark = current >= eventStart &&
+              current.getMonth() === eventStart.getMonth() &&
+              current.getDate() === eventStart.getDate();
+            break;
+        }
+
+        if (shouldMark) {
           if (!eventDotsByDate[dateString]) {
             eventDotsByDate[dateString] = [];
           }
-          const eventColor = event.color || '#0267FF';
           eventDotsByDate[dateString].push(eventColor);
-
-          current.setDate(current.getDate() + 1);
         }
-      } else {
-        let end = new Date(event.endDate);
-        let current = new Date(start);
 
-        while (current <= end) {
-          const dateString = current.toISOString().split("T")[0];
-
-          if (!eventDotsByDate[dateString]) {
-            eventDotsByDate[dateString] = [];
-          }
-          const eventColor = event.color || '#0267FF';
-          eventDotsByDate[dateString].push(eventColor);
-
-          current.setDate(current.getDate() + 1);
-        }
+        // Move to next day
+        current.setDate(current.getDate() + 1);
       }
     });
+
+    // Add holiday dots
     holidays.forEach((h) => {
       if (!marked[h.date]) {
         marked[h.date] = { marked: true, dots: [{ color: "#FF5252" }] };
       }
     });
 
+    // Add event dots (max 2 dots per date)
     Object.keys(eventDotsByDate).forEach((dateString) => {
       const eventColors = eventDotsByDate[dateString];
-      const firstEventColor = eventColors[0];
+      const uniqueColors = [...new Set(eventColors)]; // Remove duplicates
+      const firstEventColor = uniqueColors[0];
+      const secondEventColor = uniqueColors[1];
+
       if (!marked[dateString]) {
-        marked[dateString] = { marked: true, dots: [{ color: firstEventColor }] };
+        marked[dateString] = {
+          marked: true,
+          dots: [{ color: firstEventColor }]
+        };
       } else {
+        // Holiday already exists, add event dot
         if (marked[dateString].dots && marked[dateString].dots.length < 2) {
           marked[dateString].dots.push({ color: firstEventColor });
         }
       }
+
+      // Add second dot if multiple events
+      if (secondEventColor && marked[dateString].dots.length < 2) {
+        marked[dateString].dots.push({ color: secondEventColor });
+      }
     });
 
+    // Mark selected date
     if (selectedDate) {
       marked[selectedDate] = {
         ...marked[selectedDate],
@@ -409,34 +831,74 @@ export default function CalendarScreen({ navigation }: any) {
 
     return marked;
   };
+
+
   const getTodayEvents = () => {
     const selected = selectedDate;
-    const selectedD = new Date(selected);
+    const selectedDateOnly = selected.split('T')[0];
+    const selectedD = new Date(selectedDateOnly + 'T00:00:00');
+    const allEvents: any[] = [];
 
-    const userEvents = events.filter((e) => {
-      const start = new Date(e.startDate);
-      if (e.allDay) {
-        return selectedD >= start;
+    // Filter user events with repeat logic
+    events.forEach((event) => {
+      const repeatType = event.repeat;
+      const eventStartDate = event.startDate.split('T')[0];
+      const eventStart = new Date(eventStartDate + 'T00:00:00');
+
+      if (selectedD < eventStart) {
+        return;
       }
-      const end = new Date(e.endDate);
-      return selectedD >= start && selectedD <= end;
+
+      if (!repeatType || repeatType === 'Does not repeat' || repeatType === 'does_not') {
+        if (event.allDay) {
+          if (eventStartDate === selectedDateOnly) {
+            allEvents.push(event);
+          }
+        } else {
+          const start = new Date(event.startDate.split('T')[0] + 'T00:00:00');
+          const end = new Date(event.endDate.split('T')[0] + 'T00:00:00');
+          if (selectedD >= start && selectedD <= end) {
+            allEvents.push(event);
+          }
+        }
+        return;
+      }
+      let shouldShow = false;
+
+      switch (repeatType) {
+        case 'Everyday':
+        case 'everyday':
+        case 'daily':
+          shouldShow = true;
+          break;
+
+        case 'Every week':
+        case 'every_week':
+        case 'weekly':
+          shouldShow = selectedD.getDay() === eventStart.getDay();
+          break;
+
+        case 'Every month':
+        case 'every_month':
+        case 'monthly':
+          shouldShow = selectedD.getDate() === eventStart.getDate();
+          break;
+
+        case 'Every year':
+        case 'every_year':
+        case 'yearly':
+          shouldShow = selectedD.getMonth() === eventStart.getMonth() &&
+            selectedD.getDate() === eventStart.getDate();
+          break;
+      }
+
+      if (shouldShow) {
+        allEvents.push(event);
+      }
     });
 
-    // const todayHolidays = holidays
-    //   .filter((h) => h.date === selected)
-    //   .map((h, index) => ({
-    //     id: `holiday-${h.date}-${index}`,
-    //     title: h.name,
-    //     date: h.date,
-    //     allDay: true,
-    //     isHoliday: true,
-    //   }));
-
-    // return [...todayHolidays, ...userEvents];
     const todayHolidays = holidays
-      .filter((h) => {
-        return h.date === selected;
-      })
+      .filter((h) => h.date === selectedDateOnly)
       .map((h, index) => ({
         id: `holiday-${h.date}-${index}`,
         title: h.name,
@@ -444,8 +906,10 @@ export default function CalendarScreen({ navigation }: any) {
         allDay: true,
         isHoliday: true,
       }));
-    return [...todayHolidays, ...userEvents];
+
+    return [...todayHolidays, ...allEvents];
   };
+
 
   const handleEditEvent = (event: any) => {
     setMenuVisible(null);
@@ -483,7 +947,7 @@ export default function CalendarScreen({ navigation }: any) {
       {/* STICKY CALENDAR HEADER */}
       <View style={[styles.calendarContainer, { backgroundColor: colors.background }]}>
         <Calendar
-          key={`${theme}-${firstDayOfWeek}-${refreshKey}-${i18n.language}`}
+          key={`${theme}-${firstDayOfWeek}-${refreshKey}-${i18n.language}-${calendarKey}`}
           firstDay={firstDayOfWeek}
           current={selectedDate}
           onDayPress={(day) => {
@@ -615,6 +1079,25 @@ export default function CalendarScreen({ navigation }: any) {
                 <TouchableOpacity
                   style={[styles.eventCard, { backgroundColor: colors.cardBackground }]}
                   activeOpacity={0.7}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/viewEvent',
+                      params: {
+                        eventId: event.id,
+                        title: event.title || '',
+                        description: event.description || '',
+                        startDate: event.startDate || event.date,
+                        endDate: event.endDate || event.date,
+                        startTime: event.startTime || '12:00 PM',
+                        endTime: event.endTime || '01:00 PM',
+                        allDay: String(event.allDay || false),
+                        repeat: event.repeat || 'does_not',
+                        reminders: JSON.stringify(event.reminders || ['at_time']),
+                        color: event.color || (event.isHoliday ? '#FF6B6B' : '#0267FF'),
+                        isHoliday: String(event.isHoliday || false),
+                      }
+                    });
+                  }}
                 >
                   <View
                     style={[
@@ -627,9 +1110,14 @@ export default function CalendarScreen({ navigation }: any) {
                     ]}
                   />
                   <View style={styles.eventContent}>
-                    <Text style={[styles.eventTime, { color: colors.primary }]}>
-                      {selectedDate}
-                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[styles.eventTime, { color: colors.primary }]}>
+                        {selectedDate}
+                      </Text>
+                      <Text style={[styles.eventRepeat, { color: colors.textTertiary, fontSize: 12 }]}>
+                        {getRepeatDisplayText(event.repeat || (event.isHoliday ? 'does_not' : ''))}
+                      </Text>
+                    </View>
 
                     <Text style={[styles.eventTitle, { color: colors.textPrimary }]}>
                       {event.title}
@@ -639,62 +1127,17 @@ export default function CalendarScreen({ navigation }: any) {
                       {event.isHoliday ? t('all_day') : `${event.startTime} - ${event.endTime}`}
                     </Text>
                   </View>
-
-                  <View style={styles.eventMenuContainer}>
-                    <TouchableOpacity
-                      onPress={() => setMenuVisible(menuVisible === `${event.id}-${index}` ? null : `${event.id}-${index}`)}
-                      style={styles.menuButton}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Feather name="more-vertical" size={20} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
                 </TouchableOpacity>
-
-                {menuVisible === `${event.id}-${index}` && (
-                  <View style={[styles.dropdownMenu, { backgroundColor: colors.cardBackground }]}>
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleEditEvent(event)}
-                    >
-                      <Feather name="edit-2" size={18} color="#FF5252" />
-                      <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t("edit")}</Text>
-                    </TouchableOpacity>
-
-                    {!event.isHoliday && (
-                      <TouchableOpacity
-                        style={styles.menuItem}
-                        onPress={() => handleDeleteEvent(event.id)}
-                      >
-                        <Feather name="trash-2" size={18} color="#FF5252" />
-                        <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>
-                          {t("delete")}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleShareEvent(event)}
-                    >
-                      <Feather name="share-2" size={18} color="#FF5252" />
-                      <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{t("share")}</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
             ))
           ) : (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
               <Image
-                source={
-                  theme
-                    ? require("../../assets/images/dark-no-event.png")
-                    : require("../../assets/images/no-events.png")
-                }
-                style={{ width: 140, height: 140, marginBottom: 12, opacity: 0.8 }}
+                source={theme === "dark" ? darkNoEventImg : lightNoEventImg}
+                style={{ width: 140, height: 140, marginBottom: 12 }}
                 resizeMode="contain"
               />
+
               <Text
                 style={[
                   styles.noDataText,
@@ -753,6 +1196,22 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
   },
+  stickyAdContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    marginTop: 6,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
   eventTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -770,6 +1229,24 @@ const styles = StyleSheet.create({
     paddingRight: 12,
     paddingLeft: 8,
   },
+  eventRepeat: {
+    justifyContent: "center",
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+  bannerContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  topPosition: {
+    paddingTop: 10,
+  },
+  bottomPosition: {
+    paddingBottom: 10,
+  },
+
   eventRepeatText: {
     fontSize: 12,
     fontWeight: '500',

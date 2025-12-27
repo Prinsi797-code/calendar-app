@@ -12,7 +12,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  BannerAdSize,
+  GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../contexts/ThemeContext';
+import AdsManager from '../services/adsManager';
 import { loadData } from '../utils/storage';
 
 export default function SearchScreen() {
@@ -23,6 +28,7 @@ export default function SearchScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [memos, setMemos] = useState<any[]>([]);
+
   const [diaries, setDiaries] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
   const [filteredItems, setFilteredItems] = useState<any[]>([]);
@@ -39,6 +45,17 @@ export default function SearchScreen() {
     loadAllData();
   }, []);
 
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
+  }, []);
+
   useEffect(() => {
     filterAllItems();
   }, [searchQuery, events, challenges, memos, diaries, holidays]);
@@ -46,14 +63,14 @@ export default function SearchScreen() {
   const fetchHolidays = async () => {
     try {
       const API_URL = `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events` +
-          `?key=${API_KEY}` +
-          `&timeMin=${currentYear}-01-01T00:00:00Z` +
-          `&timeMax=${currentYear + 3}-12-31T23:59:59Z` +
-          `&maxResults=1000` +
-          `&singleEvents=true` +
-          `&orderBy=startTime` +
-          `&hl=${i18n.language === 'hi' ? 'hi' : 'en'}`;
-      
+        `?key=${API_KEY}` +
+        `&timeMin=${currentYear}-01-01T00:00:00Z` +
+        `&timeMax=${currentYear + 3}-12-31T23:59:59Z` +
+        `&maxResults=1000` +
+        `&singleEvents=true` +
+        `&orderBy=startTime` +
+        `&hl=${i18n.language === 'hi' ? 'hi' : 'en'}`;
+
       const response = await fetch(API_URL);
       const data = await response.json();
 
@@ -69,12 +86,10 @@ export default function SearchScreen() {
       }
     } catch (error) {
       console.error('Error fetching holidays:', error);
-      // Fallback to empty array if API fails
+
       setHolidays([]);
     }
   };
-
-  // Load all data from storage
   const loadAllData = async () => {
     try {
       setLoading(true);
@@ -160,7 +175,7 @@ export default function SearchScreen() {
 
   const groupItemsByDate = () => {
     const grouped: { [key: string]: any[] } = {};
-    
+
     filteredItems.forEach((item) => {
       const date = item.displayDate;
       if (!grouped[date]) {
@@ -195,9 +210,9 @@ export default function SearchScreen() {
         return { color: '#FF6B6B', icon: 'calendar' };
       case 'event':
         // Use event's color if available, otherwise default to #0267FF
-        return { 
-          color: item?.color || '#0267FF', 
-          icon: 'calendar' 
+        return {
+          color: item?.color || '#0267FF',
+          icon: 'calendar'
         };
       case 'challenge':
         return { color: '#4CAF50', icon: 'target' };
@@ -253,6 +268,17 @@ export default function SearchScreen() {
     }
   };
 
+  // Clear search function
+  const handleClearSearch = () => {
+    setSearchQuery('');
+  };
+
+  // Handle back button press
+  const handleBackPress = () => {
+    setSearchQuery(''); // Clear search when going back
+    router.back();
+  };
+
   const groupedItems = groupItemsByDate();
 
   if (loading) {
@@ -274,38 +300,45 @@ export default function SearchScreen() {
       <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={handleBackPress}
         >
           <Feather name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <TextInput
-          style={[
-            styles.searchInput,
-            {
-              backgroundColor: colors.cardBackground,
-              color: colors.textPrimary,
-            },
-          ]}
-          placeholder={t('search_events')}
-          placeholderTextColor={colors.textTertiary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoFocus
-        />
+        <View style={styles.searchInputContainer}>
+          <TextInput
+            style={[
+              styles.searchInput,
+              {
+                backgroundColor: colors.cardBackground,
+                color: colors.textPrimary,
+              },
+            ]}
+            placeholder={t('search_events')}
+            placeholderTextColor={colors.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={handleClearSearch}
+            >
+              <Feather name="x" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </View>
 
         <TouchableOpacity
           style={styles.settingsButton}
-          onPress={() => router.push('/settings')} 
+          onPress={() => router.push('/settings')}
         >
           <Feather name="settings" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-
-
-        
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} >
         {groupedItems.length > 0 ? (
           groupedItems.map((group) => (
             <View key={group.date} style={styles.dateGroup}>
@@ -314,7 +347,7 @@ export default function SearchScreen() {
               </Text>
               {group.items.map((item) => {
                 const typeStyle = getTypeStyle(item.type, item);
-                
+
                 return (
                   <TouchableOpacity
                     key={item.id}
@@ -334,25 +367,34 @@ export default function SearchScreen() {
                     />
 
                     <View style={styles.eventContent}>
-                      <View style={styles.titleRow}>
-                        {item.icon && (
+                      {item.icon ? (
+                        <View style={styles.titleRow}>
                           <Text style={styles.itemIcon}>{item.icon}</Text>
-                        )}
+                          <Text
+                            style={[
+                              styles.eventTitle,
+                              { color: colors.textPrimary },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {item.title}
+                          </Text>
+                        </View>
+                      ) : (
                         <Text
                           style={[
                             styles.eventTitle,
                             { color: colors.textPrimary },
                           ]}
+                          numberOfLines={2}
                         >
                           {item.title}
                         </Text>
-                      </View>
+                      )}
 
-                      {item.type === 'diary' ? (
-                        null
-                      ) : (
+                      {item.type !== 'diary' && (
                         <View style={styles.eventDetails}>
-                          {item.type === 'holiday' || item.allDay ? (
+                          {(item.type === 'holiday' || item.allDay) && (
                             <Text
                               style={[
                                 styles.eventTime,
@@ -361,7 +403,8 @@ export default function SearchScreen() {
                             >
                               {t('all_day')}
                             </Text>
-                          ) : item.type === t('event') ? (
+                          )}
+                          {item.type === 'event' && !item.allDay && item.startTime && (
                             <Text
                               style={[
                                 styles.eventTime,
@@ -370,7 +413,8 @@ export default function SearchScreen() {
                             >
                               {`${item.startTime} - ${item.endTime}`}
                             </Text>
-                          ) : item.type === t('challenge') ? (
+                          )}
+                          {item.type === 'challenge' && (
                             <Text
                               style={[
                                 styles.eventTime,
@@ -380,12 +424,12 @@ export default function SearchScreen() {
                               {item.repeat === 'everyday'
                                 ? t('daily')
                                 : item.repeat === 'every_week'
-                                ? t('weekly')
-                                : item.repeat === 'every_month'
-                                ? t('monthly')
-                                : t('once')}
+                                  ? t('weekly')
+                                  : item.repeat === 'every_month'
+                                    ? t('monthly')
+                                    : t('once')}
                             </Text>
-                          ) : null}
+                          )}
                         </View>
                       )}
                     </View>
@@ -429,6 +473,15 @@ export default function SearchScreen() {
           </View>
         )}
       </ScrollView>
+      {bannerConfig?.show && (
+        <View style={styles.stickyAdContainer}>
+          <GAMBannerAd
+            unitId={bannerConfig.id}
+            sizes={[BannerAdSize.FULL_BANNER]}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -436,6 +489,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 30,
+  },
+  stickyAdContainer: {
+    width: '100%',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -457,12 +514,28 @@ const styles = StyleSheet.create({
   itemIcon: {
     fontSize: 18,
   },
+  searchInputContainer: {
+    flex: 1,
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   searchInput: {
     flex: 1,
     height: 44,
     borderRadius: 22,
     paddingHorizontal: 16,
+    paddingRight: 44,
     fontSize: 16,
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 12,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -540,10 +613,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   noResultsContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
   },
   noResultsIcon: {
     marginBottom: 16,

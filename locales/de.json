@@ -307,5 +307,9 @@
     "notifications_disabled": "Benachrichtigung deaktiviert",
     "notifications_enabled": "Benachrichtigung aktiviert",
     "no_event_yet": "Noch keine Ereignisse",
-    "done": "Fertig"
+    "done": "Fertig",
+    "delete_event_title": "Ereignis löschen",
+    "delete_event_message": "Sind Sie sicher, dass Sie dieses Ereignis löschen möchten?",
+    "updated": "Aktualisieren" 
+
 }

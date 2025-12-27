@@ -307,6 +307,9 @@
     "notifications_disabled": "Notificação desativada",
     "notifications_enabled": "Notificação ativada",
     "no_event_yet": "Ainda não há eventos",
-    "done": "Concluído"
+    "done": "Concluído",
+    "delete_event_title": "Excluir evento",
+    "delete_event_message": "Tem certeza de que deseja excluir este evento?",
+    "updated": "Atualizar"
 
 }

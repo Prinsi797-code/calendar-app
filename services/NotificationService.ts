@@ -25,9 +25,10 @@ const parseFestivalDate = (dateString: string) => {
   const [year, month, day] = dateString.split('-').map(Number);
 
   // Local date (no timezone shift)
-  return new Date(year, month - 1, day, 9, 0, 0);
-};
+  return new Date(year, month - 1, day, 0, 0, 0); // 12:00 AM
+  // return new Date(year, month - 1, day, 10, 45, 0); // 10:45 AM
 
+};
 
 class NotificationService {
   async requestPermissions() {
@@ -359,7 +360,6 @@ class NotificationService {
 
     return notificationId;
   }
-
 
   async scheduleEventNotification(
     eventId: string,

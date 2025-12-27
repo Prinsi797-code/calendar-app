@@ -5,14 +5,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/logo.png",
-    "owner": "hevin202",
+    "owner": "epick123",
     "scheme": "calendarapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "displayName": "Calendar2025",
-      "bundleIdentifier": "CalanderApp",
+      "displayName": "Smart Calendar 2026",
+      "bundleIdentifier": "com.hevin.calendar2026",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,7 +25,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.hevin.calendar2026"
     },
     "web": {
       "output": "static",
@@ -46,6 +47,13 @@
           }
         }
       ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ],
       "expo-secure-store",
       "expo-localization"
     ],
@@ -56,7 +64,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "57fb9af6-f2c4-40f4-b30d-148f39d57a65"
+        "projectId": "65da0ba9-2c6c-4136-87c8-03a340efc559"
       }
     }
   }

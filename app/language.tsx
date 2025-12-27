@@ -1,178 +1,257 @@
-// app/languages.tsx  (or wherever your screen is)
-
-import { Feather } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+// app/language.tsx
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  FlatList,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from "react-native";
+  View
+} from 'react-native';
+import {
+  BannerAdSize,
+  GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../contexts/ThemeContext';
-import i18n from "../utils/i18n";
+import AdsManager from '../services/adsManager';
+import OnboardingService from '../services/OnboardingService';
 
-const LANGUAGES = [
-  { code: "en", name: "English", flag: require("../assets/language/uk.png") },
-  { code: "pt", name: "Portuguese", flag: require("../assets/language/portugal.png") },
-  { code: "es", name: "Spanish", flag: require("../assets/language/spanish.png") },
-  { code: "fr", name: "French", flag: require("../assets/language/french.png") },
-  { code: "hi", name: "Hindi", flag: require("../assets/language/india.png") },
-  { code: "de", name: "German", flag: require("../assets/language/german.png") },
-  { code: "id", name: "Indonesian", flag: require("../assets/language/indonesia.png") },
-  { code: "zh", name: "Chinese", flag: require("../assets/language/china.png") },
-  { code: "ru", name: "Russian", flag: require("../assets/language/russia.png") },
-  { code: "ko", name: "Korean", flag: require("../assets/language/korean.png") },
-  { code: "it", name: "Italian", flag: require("../assets/language/italian.png") }
-];
+const LANGUAGES = [{ code: "en", name: "English", flag: require("../assets/language/uk.png") }, { code: "pt", name: "Portuguese", flag: require("../assets/language/portugal.png") }, { code: "es", name: "Spanish", flag: require("../assets/language/spanish.png") }, { code: "fr", name: "French", flag: require("../assets/language/french.png") }, { code: "hi", name: "Hindi", flag: require("../assets/language/india.png") }, { code: "de", name: "German", flag: require("../assets/language/german.png") }, { code: "id", name: "Indonesian", flag: require("../assets/language/indonesia.png") }, { code: "zh", name: "Chinese", flag: require("../assets/language/china.png") }, { code: "ru", name: "Russian", flag: require("../assets/language/russia.png") }, { code: "ko", name: "Korean", flag: require("../assets/language/korean.png") }, { code: "it", name: "Italian", flag: require("../assets/language/italian.png") }];
 
-export default function LanguagesScreen() {
+export default function Language() {
   const router = useRouter();
-  const { t } = useTranslation();
-  const { colors, theme } = useTheme();
-  const [selected, setSelected] = useState("en");
+  const { colors } = useTheme();
+  const { i18n } = useTranslation();
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [isFirstTime, setIsFirstTime] = useState(false);
+
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const saved = await AsyncStorage.getItem("appLanguage");
-      if (saved) setSelected(saved);
-    })();
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
   }, []);
 
-  const handleSave = async () => {
-    await AsyncStorage.setItem("appLanguage", selected);
-    i18n.changeLanguage(selected);
-    console.log(selected);
-    router.replace("/");
+  // Check if this is first time opening the app
+  useEffect(() => {
+    const checkFirstTime = async () => {
+      try {
+        const completed = await OnboardingService.isOnboardingCompleted();
+        console.log('📱 Language screen - Onboarding completed:', completed);
+        setIsFirstTime(!completed);
+
+        // Set default language to English on first launch
+        if (!completed) {
+          setSelectedLanguage('en');
+          await i18n.changeLanguage('en');
+          console.log('🌍 First time launch - Default language set to English');
+        } else {
+          // Load saved language
+          const savedLang = await OnboardingService.getLanguage();
+          console.log('📱 Saved language:', savedLang);
+          if (savedLang) {
+            setSelectedLanguage(savedLang);
+            await i18n.changeLanguage(savedLang);
+          } else {
+            setSelectedLanguage(i18n.language || 'en');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking first time:', error);
+        setIsFirstTime(false);
+      }
+    };
+
+    checkFirstTime();
+  }, []);
+
+  const handleLanguageSelect = (langCode: string) => {
+    setSelectedLanguage(langCode);
   };
 
+  const handleDone = async () => {
+    try {
+      console.log('✅ Done pressed - Selected language:', selectedLanguage);
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      onPress={() => setSelected(item.code)}
-      style={[styles.item, { backgroundColor: colors.cardBackground }]}
-    >
-      <Image source={item.flag} style={styles.flag} />
+      // Save selected language
+      await i18n.changeLanguage(selectedLanguage);
+      await OnboardingService.saveLanguage(selectedLanguage);
+      console.log('✅ Language saved');
 
-      <Text style={[styles.name, { color: colors.textPrimary }]}>{item.name}</Text>
+      if (isFirstTime) {
+        // Mark onboarding as completed
+        await OnboardingService.completeOnboarding();
+        console.log('✅ Onboarding completed');
 
-      {/* {selected === item.code && (
-        <Feather name="check" size={22} color="#FF3B30" />
-      )} */}
-      <View
-        style={[
-          styles.checkCircle,
-          selected === item.code && styles.checkCircleSelected,
-        ]}
-      >
-        {selected === item.code && (
-          <Feather name="check" size={14} color="#fff" />
-        )}
-      </View>
+        // Show ad before navigating
+        await AdsManager.showInterstitialAd('language_to_home');
 
-    </TouchableOpacity>
-  );
+        // Navigate to home (index.tsx) for first time users
+        console.log('🏠 Navigating to home...');
+        router.replace('/(tabs)');
+      } else {
+        // For returning users, just go back
+        await AdsManager.showBackButtonAd('language');
+        router.back();
+      }
+    } catch (error) {
+      console.error('❌ Error in handleDone:', error);
+      // Navigate anyway to prevent user from being stuck
+      if (isFirstTime) {
+        await OnboardingService.completeOnboarding();
+        router.replace('/(tabs)');
+      } else {
+        router.back();
+      }
+    }
+  };
+
+  const handleBackPress = async () => {
+    // Only allow back if not first time
+    if (!isFirstTime) {
+      await AdsManager.showBackButtonAd('language');
+      router.back();
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={styles.leftContainer}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        {/* Only show back button if not first time */}
+        {!isFirstTime && (
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
+        )}
 
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            {t("language")}
-          </Text>
-        </View>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={[styles.doneText, { color: '#FF3B30' }]}>
-            {t("done")}
-          </Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, marginLeft: isFirstTime ? 16 : 0 }]}>
+          Select Language
+        </Text>
+
+        <TouchableOpacity onPress={handleDone} style={styles.doneButton}>
+          <Text style={[styles.doneText, { color: colors.primary }]}>Done</Text>
         </TouchableOpacity>
-
       </View>
 
-      {/* LIST */}
-      <FlatList
-        data={LANGUAGES}
-        keyExtractor={(item) => item.code}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-      />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {LANGUAGES.map((language) => (
+          <TouchableOpacity
+            key={language.code}
+            style={[
+              styles.languageItem,
+              { backgroundColor: colors.cardBackground }
+            ]}
+            onPress={() => handleLanguageSelect(language.code)}
+          >
+            <View style={styles.languageLeft}>
+              <Image source={language.flag} style={styles.flag} />
+              <View style={styles.languageInfo}>
+                <Text style={[styles.languageName, { color: colors.textPrimary }]}>
+                  {language.name}
+                </Text>
+                <Text style={[styles.languageNative, { color: colors.textSecondary }]}>
+                  {language.nativeName}
+                </Text>
+              </View>
+            </View>
+
+            {selectedLanguage === language.code ? (
+              <Feather name="check-circle" size={24} color="#FF433A" />
+            ) : (
+              <Feather name="circle" size={24} color="#ccc" />
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {bannerConfig?.show && (
+        <View style={styles.stickyAdContainer}>
+          <GAMBannerAd
+            unitId={bannerConfig.id}
+            sizes={[BannerAdSize.FULL_BANNER]}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
     </View>
   );
 }
 
-// STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
-    padding: 20,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 25,
-    marginTop: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    // borderBottomWidth: 1,
+    paddingTop: 60,
+    // borderBottomColor: '#e0e0e0',
+  },
+  backButton: {
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: '600',
+    flex: 1,
+  },
+  doneButton: {
+    padding: 8,
+  },
+  doneText: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  leftContainer: {
+  content: {
+    flex: 1,
+    paddingTop: 16,
+  },
+  languageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+  },
+  languageLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  item: {
-    padding: 10,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  backButton: {
-    padding: 4,
-    marginRight: 10,
-  },
-  doneText: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-
   flag: {
-    width: 32,
-    height: 32,
-    marginRight: 15,
-    borderRadius: 5,
+    width: 40,
+    height: 30,
+    borderRadius: 4,
+    marginRight: 16,
   },
-  name: {
-    fontSize: 17,
+  languageInfo: {
     flex: 1,
   },
-  checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#C7C7CC',
+  languageName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  languageNative: {
+    fontSize: 14,
+  },
+  stickyAdContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-
-  checkCircleSelected: {
-    backgroundColor: '#FF3B30',
-    borderColor: '#FF3B30',
-  },
-
 });

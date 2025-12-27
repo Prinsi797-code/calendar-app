@@ -4,8 +4,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from "react-i18next";
-import { Alert, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../contexts/ThemeContext';
+import AdsManager from '../services/adsManager';
 import NotificationService from '../services/NotificationService';
 import { loadData, saveData } from '../utils/storage';
 
@@ -38,6 +43,61 @@ export default function EditEventScreen() {
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [activeTimeField, setActiveTimeField] = useState<"start" | "end" | null>(null);
     const [tempTime, setTempTime] = useState(new Date());
+    const [originalData, setOriginalData] = useState<any>(null);
+    // const [formData, setFormData] = useState<any>(null);
+
+
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
+
+    useEffect(() => {
+        if (params.id) {
+            loadEvent(params.id as string);
+        }
+    }, [params.id]);
+
+    const loadEvent = async (id: string) => {
+        const stored = await AsyncStorage.getItem('events');
+        if (!stored) return;
+
+        const events = JSON.parse(stored);
+        const event = events.find((e: any) => e.id === id);
+        if (!event) return;
+
+        const snapshot = JSON.parse(JSON.stringify(event)); // 👈 deep clone
+        setOriginalFormData(snapshot);
+
+        setOriginalData(snapshot);   // 🔒 original
+        setFormData(snapshot);       // ✏️ editable
+    };
+
+    // EditEvent.tsx mein add karo (top level, component ke andar)
+    const formatDateForDisplay = (date: Date) => {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+    };
+
+    // Original values - yeh backup hai
+    const [originalFormData, setOriginalFormData] = useState({
+        title: '',
+        description: '',
+        startDate: new Date(),
+        endDate: new Date(),
+        startTime: new Date(),
+        endTime: new Date(),
+        allDay: false,
+        repeat: 'Does not repeat',
+        reminders: ['at_time'],
+        color: '#0267FF',
+    });
 
     const [formData, setFormData] = useState({
         title: '',
@@ -61,6 +121,10 @@ export default function EditEventScreen() {
         '#FF0004',
         '#b4962a98',
         '#75D23B',
+        '#e1e41aff',
+        '#27aa6dff',
+        '#6734ceff',
+        '#ce3479ff',
     ];
 
     const getReminderOptions = () => {
@@ -82,7 +146,6 @@ export default function EditEventScreen() {
             { key: '30min', label: t('30min') },
             { key: '1hour', label: t('1hour') },
             { key: '1day', label: t('1day') },
-            { key: 'custom', label: t('custom') },
         ];
     };
 
@@ -196,6 +259,7 @@ export default function EditEventScreen() {
                 color: params.color as string || '#0267FF',
             };
 
+            setOriginalFormData(JSON.parse(JSON.stringify(newFormData)));
             setFormData(newFormData);
             setTempReminders(newFormData.reminders);
 
@@ -205,7 +269,6 @@ export default function EditEventScreen() {
                 ? JSON.parse(params.reminders as string)
                 : ['at_time'];
 
-            // ✅ SAFETY: convert label → key if needed
             const normalizedReminders = parsedReminders.map((r: string) => {
                 const map: Record<string, string> = {
                     "On the day at 9 AM": "on_day_9am",
@@ -223,746 +286,874 @@ export default function EditEventScreen() {
             }));
 
             setTempReminders(normalizedReminders);
-
-    }
-    }, [
-    params.eventId,
-    params.title,
-    params.description,
-    params.startDate,
-    params.endDate,
-    params.startTime,
-    params.endTime,
-    params.allDay,
-    params.repeat,
-    params.reminders,
-    params.color // ADD THIS
-]);
-
-useEffect(() => {
-    if (params.repeatValue) {
-        console.log("Received repeat value:", params.repeatValue);
-        setFormData(prev => ({
-            ...prev,
-            repeat: params.repeatValue as string
-        }));
-    }
-}, [params.repeatValue]);
-
-const formatDate = (date: Date) => {
-    const d = new Date(date);
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
-};
-
-const formatTime = (date: Date) => {
-    const d = new Date(date);
-    let hours = d.getHours();
-    const minutes = d.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    return `${hours}:${minutes < 10 ? '0' + minutes : minutes} ${ampm}`;
-};
-
-const handleOpenReminderModal = () => {
-    setTempReminders([...formData.reminders]);
-    setShowReminderModal(true);
-};
-
-const handleToggleReminder = (key: string) => {
-    if (tempReminders.includes(key)) {
-        if (tempReminders.length > 1) {
-            setTempReminders(tempReminders.filter(r => r !== key));
         }
-    } else {
-        setTempReminders([...tempReminders, key]);
-    }
-};
+    }, [
+        params.eventId,
+        params.title,
+        params.description,
+        params.startDate,
+        params.endDate,
+        params.startTime,
+        params.endTime,
+        params.allDay,
+        params.repeat,
+        params.reminders,
+        params.color
+    ]);
 
-const handleStartDateConfirm = () => {
-    setStartDate(tempDate);
-    setFormData({ ...formData, startDate: tempDate });
-    if (endDate < tempDate) {
-        setEndDate(tempDate);
-        setFormData(prev => ({ ...prev, endDate: tempDate }));
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const newStart = new Date(tempDate);
-    newStart.setHours(0, 0, 0, 0);
+    useEffect(() => {
+        if (params.repeatValue) {
+            console.log("Received repeat value:", params.repeatValue);
+            setFormData(prev => ({
+                ...prev,
+                repeat: params.repeatValue as string
+            }));
+        }
+    }, [params.repeatValue]);
 
-    if (newStart <= today && formData.allDay) {
-        setFormData(prev => ({
-            ...prev,
-            startDate: tempDate,
-            allDay: false,
-            reminders: ["at_time"]
-        }));
-    }
-    setShowStartDatePicker(false);
-};
+    const formatDate = (date: Date) => {
+        const d = new Date(date);
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+    };
 
-const handleEndDateConfirm = () => {
-    if (tempDate < startDate) {
-        Alert.alert('Invalid Date', 'End date cannot be before start date');
-        return;
-    }
+    const formatTime = (date: Date) => {
+        const d = new Date(date);
+        let hours = d.getHours();
+        const minutes = d.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        return `${hours}:${minutes < 10 ? '0' + minutes : minutes} ${ampm}`;
+    };
 
-    setEndDate(tempDate);
-    setFormData({ ...formData, endDate: tempDate });
-    setShowEndDatePicker(false);
-};
+    const handleOpenReminderModal = () => {
+        setTempReminders([...formData.reminders]);
+        setShowReminderModal(true);
+    };
 
-const handleReminderCancel = () => {
-    setTempReminders([...formData.reminders]);
-    setShowReminderModal(false);
-};
+    const handleToggleReminder = (key: string) => {
+        if (tempReminders.includes(key)) {
+            if (tempReminders.length > 1) {
+                setTempReminders(tempReminders.filter(r => r !== key));
+            }
+        } else {
+            setTempReminders([...tempReminders, key]);
+        }
+    };
 
-const handleReminderOk = () => {
-    setFormData({ ...formData, reminders: [...tempReminders] });
-    setShowReminderModal(false);
-};
+    const handleStartDateConfirm = () => {
+        setStartDate(tempDate);
+        setFormData({ ...formData, startDate: tempDate });
+        if (endDate < tempDate) {
+            setEndDate(tempDate);
+            setFormData(prev => ({ ...prev, endDate: tempDate }));
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const newStart = new Date(tempDate);
+        newStart.setHours(0, 0, 0, 0);
 
-const handleRemoveReminder = (reminder: string) => {
-    if (formData.reminders.length > 1) {
-        setFormData({
-            ...formData,
-            reminders: formData.reminders.filter(r => r !== reminder)
-        });
-    }
-};
+        if (newStart <= today && formData.allDay) {
+            setFormData(prev => ({
+                ...prev,
+                startDate: tempDate,
+                allDay: false,
+                reminders: ["at_time"]
+            }));
+        }
+        setShowStartDatePicker(false);
+    };
 
-const handleColorSelect = (color: string) => {
-    setFormData({ ...formData, color });
-    setShowColorPicker(false);
-};
+    const handleEndDateConfirm = () => {
+        if (tempDate < startDate) {
+            Alert.alert('Invalid Date', 'End date cannot be before start date');
+            return;
+        }
+        const newEndDateTime = new Date(tempDate);
+        newEndDateTime.setHours(formData.endTime.getHours());
+        newEndDateTime.setMinutes(formData.endTime.getMinutes());
+        newEndDateTime.setSeconds(0);
 
-const updateEvent = async () => {
-    if (!formData.title.trim()) {
-        Alert.alert('Error', 'Please enter a title');
-        return;
-    }
-    if (!validateMonthlyRepeat()) {
-        return;
-    }
-    if (!validateRepeatDurations()) {
-        return;
-    }
-    let eventDateTime: Date;
+        const currentStartDateTime = new Date(formData.startDate);
+        currentStartDateTime.setHours(formData.startTime.getHours());
+        currentStartDateTime.setMinutes(formData.startTime.getMinutes());
+        currentStartDateTime.setSeconds(0);
 
-    if (formData.allDay) {
-        eventDateTime = new Date(formData.startDate);
-        eventDateTime.setHours(9, 0, 0, 0);
-    } else {
-        eventDateTime = new Date(formData.startDate);
-        const startTime = new Date(formData.startTime);
-        eventDateTime.setHours(startTime.getHours());
-        eventDateTime.setMinutes(startTime.getMinutes());
-        eventDateTime.setSeconds(0);
-        eventDateTime.setMilliseconds(0);
-    }
-
-    console.log('📅 Event DateTime:', eventDateTime.toISOString());
-    console.log('🔔 Repeat Type:', formData.repeat);
-    console.log('⏰ Reminders:', formData.reminders);
-    const now = new Date();
-    const timeDiff = (eventDateTime.getTime() - now.getTime()) / 1000;
-
-    if (formData.repeat === 'Does not repeat' || formData.repeat === 'Does not repeat') {
-        if (timeDiff < 5) {
+        if (newEndDateTime <= currentStartDateTime) {
             Alert.alert(
-                'Invalid Time ⚠️',
-                'Event time must be at least 5 seconds in the future for reminders.',
-                [{ text: 'OK' }]
+                t("error") || "Error",
+                t("end_datetime_validation") || "End date and time must be after start date and time",
+                [{ text: t("ok") || "OK" }]
             );
             return;
         }
-    }
 
-    try {
-        const updatedEvent = {
-            id: params.eventId as string,
-            title: formData.title,
-            description: formData.description,
-            date: formData.startDate.toISOString().split('T')[0],
-            startDate: formData.startDate.toISOString().split('T')[0],
-            endDate: formData.endDate.toISOString().split('T')[0],
-            startTime: formatTime(formData.startTime),
-            endTime: formatTime(formData.endTime),
-            allDay: formData.allDay,
-            repeat: formData.repeat,
-            reminders: formData.reminders,
-            color: formData.color,
+        setEndDate(tempDate);
+        setFormData({ ...formData, endDate: tempDate });
+        setShowEndDatePicker(false);
+    };
+
+    const handleReminderCancel = () => {
+        setTempReminders([...formData.reminders]);
+        setShowReminderModal(false);
+    };
+
+    const handleReminderOk = () => {
+        setFormData({ ...formData, reminders: [...tempReminders] });
+        setShowReminderModal(false);
+    };
+
+    const handleRemoveReminder = (reminder: string) => {
+        if (formData.reminders.length > 1) {
+            setFormData({
+                ...formData,
+                reminders: formData.reminders.filter(r => r !== reminder)
+            });
+        }
+    };
+
+    const handleColorSelect = (color: string) => {
+        setFormData({ ...formData, color });
+        setShowColorPicker(false);
+    };
+
+    const updateEvent = async () => {
+        if (!formData.title.trim()) {
+            Alert.alert('Error', 'Please enter a title');
+            return;
+        }
+        if (!validateMonthlyRepeat()) {
+            return;
+        }
+        if (!validateRepeatDurations()) {
+            return;
+        }
+
+        // ✅ Ensure all dates are Date objects
+        const startDateObj = ensureDateObject(formData.startDate);
+        const endDateObj = ensureDateObject(formData.endDate);
+        const startTimeObj = ensureDateObject(formData.startTime);
+        const endTimeObj = ensureDateObject(formData.endTime);
+
+        let eventDateTime: Date;
+
+
+        if (formData.allDay) {
+            eventDateTime = new Date(formData.startDate);
+            eventDateTime.setHours(9, 0, 0, 0);
+        } else {
+            eventDateTime = new Date(formData.startDate);
+            const startTime = new Date(formData.startTime);
+            eventDateTime.setHours(startTime.getHours());
+            eventDateTime.setMinutes(startTime.getMinutes());
+            eventDateTime.setSeconds(0);
+            eventDateTime.setMilliseconds(0);
+        }
+
+        console.log('📅 Event DateTime:', eventDateTime.toISOString());
+        console.log('🔔 Repeat Type:', formData.repeat);
+        console.log('⏰ Reminders:', formData.reminders);
+        const now = new Date();
+        const timeDiff = (eventDateTime.getTime() - now.getTime()) / 1000;
+
+        if (formData.repeat === 'Does not repeat' || formData.repeat === 'Does not repeat') {
+            if (timeDiff < 5) {
+                Alert.alert(
+                    'Invalid Time ⚠️',
+                    'Event time must be at least 5 seconds in the future for reminders.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+        }
+
+        try {
+            const updatedEvent = {
+                id: params.eventId as string,
+                title: formData.title,
+                description: formData.description,
+                date: formData.startDate.toISOString().split('T')[0],
+                startDate: formData.startDate.toISOString().split('T')[0],
+                endDate: formData.endDate.toISOString().split('T')[0],
+                startTime: formatTime(formData.startTime),
+                endTime: formatTime(formData.endTime),
+                allDay: formData.allDay,
+                repeat: formData.repeat,
+                reminders: formData.reminders,
+                color: formData.color,
+            };
+
+            console.log("📌 Updated Event:", updatedEvent);
+            const oldNotificationIds = await AsyncStorage.getItem(
+                `event_${params.eventId}_notifications`
+            );
+
+            if (oldNotificationIds) {
+                const ids = JSON.parse(oldNotificationIds);
+                console.log('🗑️ Cancelling old notifications:', ids.length);
+
+                for (const notificationId of ids) {
+                    await NotificationService.cancelNotification(notificationId);
+                }
+
+                await AsyncStorage.removeItem(`event_${params.eventId}_notifications`);
+                console.log('Old notifications cancelled');
+            }
+            console.log('=== Scheduling Updated Event Notifications ===');
+            console.log('Event ID:', updatedEvent.id);
+            console.log('Title:', updatedEvent.title);
+
+            const notificationIds: string[] = [];
+
+            for (let i = 0; i < formData.reminders.length; i++) {
+                const reminderOffset = formData.reminders[i];
+
+                console.log(`Scheduling reminder ${i + 1}:`, reminderOffset);
+
+                const notificationId = await NotificationService.scheduleEventNotification(
+                    updatedEvent.id,
+                    formData.title,
+                    formData.description || `Event: ${formData.title}`,
+                    eventDateTime,
+                    formData.repeat,
+                    reminderOffset
+                );
+
+                if (notificationId) {
+                    notificationIds.push(notificationId);
+                    console.log(`Reminder ${i + 1} scheduled:`, notificationId);
+                } else {
+                    console.log(`Reminder ${i + 1} not scheduled (might be in past)`);
+                }
+            }
+
+            if (notificationIds.length > 0) {
+                await AsyncStorage.setItem(
+                    `event_${updatedEvent.id}_notifications`,
+                    JSON.stringify(notificationIds)
+                );
+                console.log('New notification IDs saved:', notificationIds.length);
+            }
+            const events = await loadData('events') || [];
+            const updatedEvents = events.map((event: any) =>
+                event.id === params.eventId ? updatedEvent : event
+            );
+            await saveData('events', updatedEvents);
+            console.log('Event updated in storage');
+            if (notificationIds.length > 0) {
+                const repeatMessage =
+                    formData.repeat === 'Everyday' || formData.repeat === 'everyday' ? 'Daily reminders updated!' :
+                        formData.repeat === 'Every week' || formData.repeat === 'every_week' ? 'Weekly reminders updated!' :
+                            formData.repeat === 'Every month' || formData.repeat === 'every_month' ? 'Monthly reminders updated!' :
+                                formData.repeat === 'Every year' || formData.repeat === 'every_year' ? 'Yearly reminders updated!' :
+                                    `${notificationIds.length} reminder(s) updated!`;
+
+                Alert.alert(
+                    'Success',
+                    `Event updated! ${repeatMessage}`,
+                    [{ text: 'OK', onPress: () => router.back() }]
+                );
+            } else {
+                Alert.alert('Success', 'Event updated!', [
+                    { text: 'OK', onPress: () => router.back() }
+                ]);
+            }
+        } catch (error) {
+            console.error('Error updating event:', error);
+            Alert.alert('Error', 'Failed to update event');
+        }
+    };
+    const ensureDateObject = (date: any): Date => {
+        if (date instanceof Date) return date;
+        return new Date(date);
+    };
+    const resetToOriginalValues = () => {
+        // Deep clone and ensure Date objects
+        const resetData = {
+            ...originalFormData,
+            startDate: new Date(originalFormData.startDate),
+            endDate: new Date(originalFormData.endDate),
+            startTime: new Date(originalFormData.startTime),
+            endTime: new Date(originalFormData.endTime),
         };
 
-        console.log("📌 Updated Event:", updatedEvent);
-        const oldNotificationIds = await AsyncStorage.getItem(
-            `event_${params.eventId}_notifications`
-        );
+        setFormData(resetData);
+        setStartDate(new Date(originalFormData.startDate));
+        setEndDate(new Date(originalFormData.endDate));
+        setTempReminders([...originalFormData.reminders]);
+    };
 
-        if (oldNotificationIds) {
-            const ids = JSON.parse(oldNotificationIds);
-            console.log('🗑️ Cancelling old notifications:', ids.length);
-
-            for (const notificationId of ids) {
-                await NotificationService.cancelNotification(notificationId);
-            }
-
-            await AsyncStorage.removeItem(`event_${params.eventId}_notifications`);
-            console.log('✅ Old notifications cancelled');
-        }
-        console.log('=== Scheduling Updated Event Notifications ===');
-        console.log('Event ID:', updatedEvent.id);
-        console.log('Title:', updatedEvent.title);
-
-        const notificationIds: string[] = [];
-
-        for (let i = 0; i < formData.reminders.length; i++) {
-            const reminderOffset = formData.reminders[i];
-
-            console.log(`Scheduling reminder ${i + 1}:`, reminderOffset);
-
-            const notificationId = await NotificationService.scheduleEventNotification(
-                updatedEvent.id,
-                formData.title,
-                formData.description || `Event: ${formData.title}`,
-                eventDateTime,
-                formData.repeat,
-                reminderOffset
-            );
-
-            if (notificationId) {
-                notificationIds.push(notificationId);
-                console.log(`✅ Reminder ${i + 1} scheduled:`, notificationId);
-            } else {
-                console.log(`⚠️ Reminder ${i + 1} not scheduled (might be in past)`);
-            }
-        }
-
-        if (notificationIds.length > 0) {
-            await AsyncStorage.setItem(
-                `event_${updatedEvent.id}_notifications`,
-                JSON.stringify(notificationIds)
-            );
-            console.log('✅ New notification IDs saved:', notificationIds.length);
-        }
-        const events = await loadData('events') || [];
-        const updatedEvents = events.map((event: any) =>
-            event.id === params.eventId ? updatedEvent : event
-        );
-        await saveData('events', updatedEvents);
-        console.log('✅ Event updated in storage');
-        if (notificationIds.length > 0) {
-            const repeatMessage =
-                formData.repeat === 'Everyday' || formData.repeat === 'everyday' ? 'Daily reminders updated!' :
-                    formData.repeat === 'Every week' || formData.repeat === 'every_week' ? 'Weekly reminders updated!' :
-                        formData.repeat === 'Every month' || formData.repeat === 'every_month' ? 'Monthly reminders updated!' :
-                            formData.repeat === 'Every year' || formData.repeat === 'every_year' ? 'Yearly reminders updated!' :
-                                `${notificationIds.length} reminder(s) updated!`;
-
-            Alert.alert(
-                'Success',
-                `Event updated! ${repeatMessage}`,
-                [{ text: 'OK', onPress: () => router.back() }]
-            );
-        } else {
-            Alert.alert('Success', 'Event updated!', [
-                { text: 'OK', onPress: () => router.back() }
-            ]);
-        }
-    } catch (error) {
-        console.error('❌ Error updating event:', error);
-        Alert.alert('Error', 'Failed to update event');
-    }
-};
-
-const handleCancel = () => {
-    router.back();
-};
-return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header]}>
-            <TouchableOpacity onPress={handleCancel}>
-                <Text style={[styles.headerButton, { color: colors.textPrimary }]}>✕</Text>
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("edit_event")}</Text>
-            {/* <TouchableOpacity onPress={updateEvent}>
-                    <Text style={[styles.headerButton, styles.saveButton, { color: '#FF5252' }]}>{t("update")}</Text>
-                </TouchableOpacity> */}
-            <TouchableOpacity onPress={updateEvent}>
-                <Text style={[styles.saveText, styles.saveButton]}>{t("update")}</Text>
-            </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.formScroll}>
-            <View style={[styles.titleContainer, { borderBottomColor: colors.border }]}>
-                <TextInput
-                    placeholder={t("add_title")}
-                    placeholderTextColor={colors.textSecondary}
-                    style={[styles.titleInput, { color: colors.textPrimary }]}
-                    value={formData.title}
-                    onChangeText={t => setFormData({ ...formData, title: t })}
-                />
-                <TouchableOpacity
-                    onPress={() => setShowColorPicker(true)}
-                    style={[styles.colorDot, { backgroundColor: formData.color }]}
-                />
-            </View>
-            <View style={[styles.row, { backgroundColor: colors.cardBackground, borderRadius: 10, paddingLeft: 10, paddingRight: 10 }]}>
-                <Text style={[styles.label, { color: colors.textPrimary }]}>{t("all_day")}</Text>
-                <Switch
-                    value={formData.allDay}
-                    onValueChange={handleAllDayToggle}
-                    trackColor={{ false: colors.border, true: '#FF5252' }}
-                    thumbColor={formData.allDay ? '#FFFFFF' : '#f4f3f4'}
-                    disabled={!isAllDayEnabled()}
-                />
-            </View>
-            {!isAllDayEnabled() && (
-                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 5, marginLeft: 10 }}>
-                    {t("all_day_hint") || "All-day events are only available for future dates"}
-                </Text>
-            )}
-            <View style={styles.dateRow}>
-                <View style={styles.halfSection}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>{t("start_date")}</Text>
+    const handleCancel = () => {
+        // Reset to original values before going back
+        resetToOriginalValues();
+        router.back();
+    };
+    return (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.header]}>
+                {/* <TouchableOpacity onPress={handleCancel}>
+                    <Text style={[styles.headerButton, { color: colors.textPrimary }]}>✕</Text>
+                </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("edit_event")}</Text> */}
+                <View style={styles.leftContainer}>
                     <TouchableOpacity
-                        style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
-                        onPress={() => {
-                            setTempDate(startDate);
-                            setShowStartDatePicker(true);
-                        }}
+                        onPress={handleCancel}
+                        style={styles.backButton}
                     >
-                        <Feather name="calendar" size={20} color="#888" />
-                        <Text style={[styles.inputText, { color: colors.textPrimary }]}>{formatDate(startDate)}</Text>
+                        <Text style={[styles.headerButton, { color: colors.textPrimary }]}>✕</Text>
+                        {/* <Feather name="arrow-left" size={24} color={colors.textPrimary} /> */}
                     </TouchableOpacity>
-                </View>
-                <View style={styles.halfSection}>
-                    <Text style={[styles.label, { color: colors.textPrimary }]}>{t("end_date")}</Text>
-                    <TouchableOpacity
-                        style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
-                        onPress={() => {
-                            setTempDate(endDate);
-                            setShowEndDatePicker(true);
-                        }}
-                    >
-                        <Feather name="calendar" size={20} color="#888" />
-                        <Text style={[styles.inputText, { color: colors.textPrimary }]}>{formatDate(endDate)}</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
 
-            {!formData.allDay && (
-                <View style={styles.dateRow}>
-                    <View style={styles.dateColumn}>
-                        <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>
-                            {t("start_time")}
-                        </Text>
-
-                        <TouchableOpacity
-                            style={[styles.dateButton, { backgroundColor: colors.cardBackground }]}
-                            onPress={() => {
-                                setActiveTimeField("start");
-                                setTempTime(formData.startTime);
-                                setShowTimePicker(true);
-                            }}
-                        >
-                            <Feather
-                                name="clock"
-                                size={20}
-                                color={theme === "dark" ? colors.white : colors.textPrimary}
-                            />
-                            <Text style={[styles.dateText, { color: colors.textPrimary }]}>
-                                {formatTime(formData.startTime)}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.dateColumn}>
-                        <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>
-                            {t("end_time")}
-                        </Text>
-
-                        <TouchableOpacity
-                            style={[styles.dateButton, { backgroundColor: colors.cardBackground }]}
-                            onPress={() => {
-                                setActiveTimeField("end");
-                                setTempTime(formData.endTime);
-                                setShowTimePicker(true);
-                            }}
-                        >
-                            <Feather
-                                name="clock"
-                                size={20}
-                                color={theme === "dark" ? colors.white : colors.textPrimary}
-                            />
-                            <Text style={[styles.dateText, { color: colors.textPrimary }]}>
-                                {formatTime(formData.endTime)}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-
-            {/* Repeat */}
-            <View style={styles.dateColumn}>
-                <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>{t("repeat")}</Text>
-                <TouchableOpacity
-                    onPress={() => {
-                        router.push({
-                            pathname: "/repeat",
-                            params: {
-                                selectedRepeat: formData.repeat,
-                                source: 'editEvent',
-                                eventId: params.eventId,
-                                title: formData.title,
-                                description: formData.description,
-                                startDate: formData.startDate.toISOString(),
-                                endDate: formData.endDate.toISOString(),
-                                startTime: formatTime(formData.startTime),
-                                endTime: formatTime(formData.endTime),
-                                allDay: formData.allDay.toString(),
-                                reminders: JSON.stringify(formData.reminders),
-                                color: formData.color,
-                            },
-                        });
-                    }}
-                    style={[
-                        {
-                            borderBottomColor: colors.border,
-                            backgroundColor: colors.cardBackground,
-                            paddingLeft: 15,
-                            paddingRight: 15,
-                            paddingTop: 15,
-                            paddingBottom: 15,
-                            borderRadius: 10,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 10,
-                        },
-                    ]}
-                >
-                    <Feather name="repeat" size={20} color={colors.textPrimary} />
-                    <Text style={[styles.repeatIcon, { color: colors.textPrimary }]}>
-                        {t(formData.repeat)}
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                        {t("edit_event")}
                     </Text>
+                </View>
+                <TouchableOpacity onPress={updateEvent}>
+                    <Text style={[styles.saveText, styles.saveButton]}>{t("update")}</Text>
                 </TouchableOpacity>
             </View>
-            {/* Reminder */}
-            <View style={styles.dateColumn}>
-                <Text style={[styles.dateLabel, { color: colors.textPrimary, paddingTop: 20 }]}>{t("reminder")}</Text>
-                <TouchableOpacity
-                    onPress={handleOpenReminderModal}
-                    style={[
-                        {
-                            backgroundColor: colors.cardBackground,
-                            paddingLeft: 15,
-                            paddingRight: 15,
-                            paddingTop: 15,
-                            paddingBottom: 15,
-                            borderRadius: 10,
-                        },
-                    ]}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                        <Feather
-                            name="bell"
-                            size={20}
-                            color={colors.textPrimary}
-                            style={{ marginTop: 2 }}
-                        />
 
-                        <View style={{ flex: 1, gap: 8 }}>
-                            <Text style={[styles.repeatIcon, { color: colors.textPrimary }]}>
-                                {t(formData.reminders[0])}
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
+            >
+                <SafeAreaView style={{ flex: 1 }}>
+                    <ScrollView
+                        style={styles.formScroll}
+                        contentContainerStyle={{ paddingBottom: 120 }}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={[styles.titleContainer, { borderBottomColor: colors.border }]}>
+                            <TextInput
+                                placeholder={t("add_title")}
+                                placeholderTextColor={colors.textSecondary}
+                                style={[styles.titleInput, { color: colors.textPrimary }]}
+                                value={formData.title}
+                                onChangeText={t => setFormData({ ...formData, title: t })}
+                            />
+                            <TouchableOpacity
+                                onPress={() => setShowColorPicker(true)}
+                                style={[styles.colorDot, { backgroundColor: formData.color }]}
+                            />
+                        </View>
+                        <View style={[styles.row, { backgroundColor: colors.cardBackground, borderRadius: 10, paddingLeft: 10, paddingRight: 10 }]}>
+                            <Text style={[styles.label, { color: colors.textPrimary }]}>{t("all_day")}</Text>
+                            <Switch
+                                value={formData.allDay}
+                                onValueChange={handleAllDayToggle}
+                                trackColor={{ false: colors.border, true: '#FF5252' }}
+                                thumbColor={formData.allDay ? '#FFFFFF' : '#f4f3f4'}
+                                disabled={!isAllDayEnabled()}
+                            />
+                        </View>
+                        {!isAllDayEnabled() && (
+                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 5, marginLeft: 10 }}>
+                                {t("all_day_hint") || "All-day events are only available for future dates"}
                             </Text>
+                        )}
+                        <View style={styles.dateRow}>
+                            <View style={styles.halfSection}>
+                                <Text style={[styles.label, { color: colors.textPrimary }]}>{t("start_date")}</Text>
+                                <TouchableOpacity
+                                    style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
+                                    onPress={() => {
+                                        setTempDate(startDate);
+                                        setShowStartDatePicker(true);
+                                    }}
+                                >
+                                    <Feather name="calendar" size={20} color="#888" />
+                                    <Text style={[styles.inputText, { color: colors.textPrimary }]}>{formatDate(startDate)}</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.halfSection}>
+                                <Text style={[styles.label, { color: colors.textPrimary }]}>{t("end_date")}</Text>
+                                <TouchableOpacity
+                                    style={[styles.inputContainer, { backgroundColor: colors.cardBackground }]}
+                                    onPress={() => {
+                                        setTempDate(endDate);
+                                        setShowEndDatePicker(true);
+                                    }}
+                                >
+                                    <Feather name="calendar" size={20} color="#888" />
+                                    <Text style={[styles.inputText, { color: colors.textPrimary }]}>{formatDate(endDate)}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
 
-                            {formData.reminders[1] && (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <Text style={[styles.repeatIcon, { color: colors.textPrimary, flex: 1 }]}>
-                                        {t(formData.reminders[1])}
+                        {!formData.allDay && (
+                            <View style={styles.dateRow}>
+                                <View style={styles.dateColumn}>
+                                    <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>
+                                        {t("start_time")}
                                     </Text>
+
                                     <TouchableOpacity
-                                        onPress={() => handleRemoveReminder(formData.reminders[1])}
-                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        style={[styles.dateButton, { backgroundColor: colors.cardBackground }]}
+                                        onPress={() => {
+                                            setActiveTimeField("start");
+                                            setTempTime(formData.startTime);
+                                            setShowTimePicker(true);
+                                        }}
                                     >
-                                        <Feather name="x" size={18} color={colors.textSecondary} />
+                                        <Feather
+                                            name="clock"
+                                            size={20}
+                                            color={theme === "dark" ? colors.white : colors.textPrimary}
+                                        />
+                                        <Text style={[styles.dateText, { color: colors.textPrimary }]}>
+                                            {formatTime(formData.startTime)}
+                                        </Text>
                                     </TouchableOpacity>
                                 </View>
-                            )}
+
+                                <View style={styles.dateColumn}>
+                                    <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>
+                                        {t("end_time")}
+                                    </Text>
+
+                                    <TouchableOpacity
+                                        style={[styles.dateButton, { backgroundColor: colors.cardBackground }]}
+                                        onPress={() => {
+                                            setActiveTimeField("end");
+                                            setTempTime(formData.endTime);
+                                            setShowTimePicker(true);
+                                        }}
+                                    >
+                                        <Feather
+                                            name="clock"
+                                            size={20}
+                                            color={theme === "dark" ? colors.white : colors.textPrimary}
+                                        />
+                                        <Text style={[styles.dateText, { color: colors.textPrimary }]}>
+                                            {formatTime(formData.endTime)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Repeat */}
+                        <View style={styles.dateColumn}>
+                            <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>{t("repeat")}</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    router.push({
+                                        pathname: "/repeat",
+                                        params: {
+                                            repeatValue: formData.repeat,
+                                            repeatDuration: formData.repeatDuration || "forever",
+                                            repeatCount: formData.repeatCount || "10",
+                                            repeatUntil: formData.repeatUntil || formatDateForDisplay(new Date()),
+                                            source: 'editEvent',
+                                            eventId: params.eventId,
+                                            title: formData.title,
+                                            description: formData.description,
+                                            startDate: formData.startDate.toISOString(),
+                                            endDate: formData.endDate.toISOString(),
+                                            startTime: formatTime(formData.startTime),
+                                            endTime: formatTime(formData.endTime),
+                                            allDay: formData.allDay.toString(),
+                                            reminders: JSON.stringify(formData.reminders),
+                                            color: formData.color,
+                                        },
+                                    });
+                                }}
+                                style={[
+                                    {
+                                        borderBottomColor: colors.border,
+                                        backgroundColor: colors.cardBackground,
+                                        paddingLeft: 15,
+                                        paddingRight: 15,
+                                        paddingTop: 15,
+                                        paddingBottom: 15,
+                                        borderRadius: 10,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                    },
+                                ]}
+                            >
+                                <Feather name="repeat" size={20} color={colors.textPrimary} />
+                                <Text style={[styles.repeatIcon, { color: colors.textPrimary }]}>
+                                    {t(formData.repeat)}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        {/* Reminder */}
+                        <View style={styles.dateColumn}>
+                            <Text style={[styles.dateLabel, { color: colors.textPrimary, paddingTop: 20 }]}>{t("reminder")}</Text>
+                            <TouchableOpacity
+                                onPress={handleOpenReminderModal}
+                                style={[
+                                    {
+                                        backgroundColor: colors.cardBackground,
+                                        paddingLeft: 15,
+                                        paddingRight: 15,
+                                        paddingTop: 15,
+                                        paddingBottom: 15,
+                                        borderRadius: 10,
+                                    },
+                                ]}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                                    <Feather
+                                        name="bell"
+                                        size={20}
+                                        color={colors.textPrimary}
+                                        style={{ marginTop: 2 }}
+                                    />
+
+                                    <View style={{ flex: 1, gap: 8 }}>
+                                        <Text style={[styles.repeatIcon, { color: colors.textPrimary }]}>
+                                            {t(formData.reminders[0])}
+                                        </Text>
+
+                                        {formData.reminders[1] && (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <Text style={[styles.repeatIcon, { color: colors.textPrimary, flex: 1 }]}>
+                                                    {t(formData.reminders[1])}
+                                                </Text>
+                                                <TouchableOpacity
+                                                    onPress={() => handleRemoveReminder(formData.reminders[1])}
+                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                >
+                                                    <Feather name="x" size={18} color={colors.textSecondary} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Note */}
+                        <TextInput
+                            placeholder={t("note")}
+                            placeholderTextColor={colors.textSecondary}
+                            style={[styles.noteInput, { color: colors.textPrimary, backgroundColor: colors.cardBackground }]}
+                            value={formData.description}
+                            onChangeText={d => setFormData({ ...formData, description: d })}
+                            multiline
+                        />
+                    </ScrollView>
+                    {bannerConfig?.show && (
+                        <View style={styles.stickyAdContainer}>
+                            <GAMBannerAd
+                                unitId={bannerConfig.id}
+                                sizes={[BannerAdSize.BANNER]}
+                                requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                            />
+                        </View>
+                    )}
+                </SafeAreaView>
+            </KeyboardAvoidingView>
+
+
+            {/* ADD THIS - Color Picker Modal */}
+            <Modal
+                visible={showColorPicker}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowColorPicker(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowColorPicker(false)}
+                >
+                    <View style={[styles.colorPickerModal, { backgroundColor: colors.background }]}>
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_color")}</Text>
+                        <View style={styles.colorGrid}>
+                            {availableColors.map((color, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    onPress={() => handleColorSelect(color)}
+                                    style={[
+                                        styles.colorOption,
+                                        { backgroundColor: color },
+                                        formData.color === color && styles.colorOptionSelected
+                                    ]}
+                                >
+                                    {formData.color === color && (
+                                        <Feather name="check" size={24} color="#FFFFFF" />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
                         </View>
                     </View>
                 </TouchableOpacity>
-            </View>
+            </Modal>
 
-            {/* Note */}
-            <TextInput
-                placeholder={t("note")}
-                placeholderTextColor={colors.textSecondary}
-                style={[styles.noteInput, { color: colors.textPrimary, backgroundColor: colors.cardBackground }]}
-                value={formData.description}
-                onChangeText={d => setFormData({ ...formData, description: d })}
-                multiline
-            />
-
-        </ScrollView>
-
-        {/* ADD THIS - Color Picker Modal */}
-        <Modal
-            visible={showColorPicker}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowColorPicker(false)}
-        >
-            <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowColorPicker(false)}
+            {/* Start Date Picker Modal */}
+            <Modal
+                visible={showStartDatePicker}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowStartDatePicker(false)}
             >
-                <View style={[styles.colorPickerModal, { backgroundColor: colors.background }]}>
-                    <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_color")}</Text>
-                    <View style={styles.colorGrid}>
-                        {availableColors.map((color, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                onPress={() => handleColorSelect(color)}
-                                style={[
-                                    styles.colorOption,
-                                    { backgroundColor: color },
-                                    formData.color === color && styles.colorOptionSelected
-                                ]}
-                            >
-                                {formData.color === color && (
-                                    <Feather name="check" size={24} color="#FFFFFF" />
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-            </TouchableOpacity>
-        </Modal>
-
-        {/* Start Date Picker Modal */}
-        <Modal
-            visible={showStartDatePicker}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowStartDatePicker(false)}
-        >
-            <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowStartDatePicker(false)}
-            >
-                <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
-                    <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_start_date")}</Text>
-                    <DateTimePicker
-                        value={tempDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(event, selectedDate) => {
-                            if (selectedDate) {
-                                setTempDate(selectedDate);
-                            }
-                        }}
-                        minimumDate={new Date()}
-                        textColor={colors.textPrimary}
-                        style={styles.datePicker}
-                    />
-                    <View style={styles.modalButtons}>
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={() => setShowStartDatePicker(false)}
-                        >
-                            <Text style={styles.modalButtonText}>{t("cancel")}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.modalButton, styles.modalButtonPrimary]}
-                            onPress={handleStartDateConfirm}
-                        >
-                            <Text style={styles.modalButtonTextPrimary}>{t("ok")}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        </Modal>
-
-        {/* End Date Picker Modal */}
-        <Modal
-            visible={showEndDatePicker}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowEndDatePicker(false)}
-        >
-            <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowEndDatePicker(false)}
-            >
-                <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
-                    <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_end_date")}</Text>
-                    <DateTimePicker
-                        value={tempDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(event, selectedDate) => {
-                            if (selectedDate) {
-                                setTempDate(selectedDate);
-                            }
-                        }}
-                        minimumDate={startDate}
-                        textColor={colors.textPrimary}
-                        style={styles.datePicker}
-                    />
-                    <View style={styles.modalButtons}>
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={() => setShowEndDatePicker(false)}
-                        >
-                            <Text style={styles.modalButtonText}>{t("cancel")}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.modalButton, styles.modalButtonPrimary]}
-                            onPress={handleEndDateConfirm}
-                        >
-                            <Text style={styles.modalButtonTextPrimary}>{t("ok")}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        </Modal>
-
-        {/* REMINDER MODAL */}
-        <Modal visible={showReminderModal} transparent animationType="fade">
-            <View style={styles.centeredModalContainer}>
                 <TouchableOpacity
-                    style={styles.modalBackdrop}
+                    style={styles.modalOverlay}
                     activeOpacity={1}
-                    onPress={handleReminderCancel}
-                />
-                <View style={[styles.reminderModalBox, { backgroundColor: colors.cardBackground }]}>
-                    <ScrollView style={{ maxHeight: 400 }}>
-                        {getReminderOptions().map(option => (
+                    onPress={() => setShowStartDatePicker(false)}
+                >
+                    <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{t("select_start_date")}</Text>
+                        <DateTimePicker
+                            value={tempDate}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={(event, selectedDate) => {
+                                if (selectedDate) {
+                                    setTempDate(selectedDate);
+                                }
+                            }}
+                            minimumDate={new Date()}
+                            textColor={colors.textPrimary}
+                            style={styles.datePicker}
+                        />
+                        <View style={styles.modalButtons}>
                             <TouchableOpacity
-                                key={option.key}
-                                onPress={() => handleToggleReminder(option.key)}
-                                style={styles.reminderOption}
+                                style={styles.modalButton}
+                                onPress={() => setShowStartDatePicker(false)}
                             >
-                                <View style={styles.radioButton}>
-                                    {tempReminders.includes(option.key) && (
-                                        <View style={styles.radioButtonSelected} />
-                                    )}
-                                </View>
+                                <Text style={styles.modalButtonText}>{t("cancel")}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonPrimary]}
+                                onPress={handleStartDateConfirm}
+                            >
+                                <Text style={styles.modalButtonTextPrimary}>{t("ok")}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
 
-                                <Text style={[styles.reminderOptionText, { color: colors.textPrimary }]}>
-                                    {option.label}
+            {/* End Date Picker Modal */}
+            <Modal
+                visible={showEndDatePicker}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowEndDatePicker(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowEndDatePicker(false)}
+                >
+                    <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                            {t("select_end_date")}
+                        </Text>
+                        <DateTimePicker
+                            value={tempDate}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={(event, selectedDate) => {
+                                if (selectedDate) {
+                                    setTempDate(selectedDate);
+                                }
+                            }}
+                            minimumDate={startDate}
+                            textColor={colors.textPrimary}
+                            style={styles.datePicker}
+                        />
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={styles.modalButton}
+                                onPress={() => setShowEndDatePicker(false)}
+                            >
+                                <Text style={styles.modalButtonText}>{t("cancel")}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonPrimary]}
+                                onPress={handleEndDateConfirm}
+                            >
+                                <Text style={styles.modalButtonTextPrimary}>{t("ok")}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* REMINDER MODAL */}
+            <Modal visible={showReminderModal} transparent animationType="fade">
+                <View style={styles.centeredModalContainer}>
+                    <TouchableOpacity
+                        style={styles.modalBackdrop}
+                        activeOpacity={1}
+                        onPress={handleReminderCancel}
+                    />
+                    <View style={[styles.reminderModalBox, { backgroundColor: colors.cardBackground }]}>
+                        <ScrollView style={{ maxHeight: 400 }}>
+                            {getReminderOptions().map(option => (
+                                <TouchableOpacity
+                                    key={option.key}
+                                    onPress={() => handleToggleReminder(option.key)}
+                                    style={styles.reminderOption}
+                                >
+                                    <View style={styles.radioButton}>
+                                        {tempReminders.includes(option.key) && (
+                                            <View style={styles.radioButtonSelected} />
+                                        )}
+                                    </View>
+
+                                    <Text style={[styles.reminderOptionText, { color: colors.textPrimary }]}>
+                                        {option.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+
+                        </ScrollView>
+
+                        <View style={styles.reminderModalActions}>
+                            <TouchableOpacity onPress={handleReminderCancel} style={styles.reminderModalBtn}>
+                                <Text style={[styles.reminderModalBtnText, { color: colors.textSecondary }]}>
+                                    {t("cancel")}
                                 </Text>
                             </TouchableOpacity>
-                        ))}
-
-                    </ScrollView>
-
-                    <View style={styles.reminderModalActions}>
-                        <TouchableOpacity onPress={handleReminderCancel} style={styles.reminderModalBtn}>
-                            <Text style={[styles.reminderModalBtnText, { color: colors.textSecondary }]}>
-                                {t("cancel")}
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleReminderOk} style={styles.reminderModalBtn}>
-                            <Text style={[styles.reminderModalBtnText, { color: '#FF5252' }]}>
-                                {t("ok")}
-                            </Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity onPress={handleReminderOk} style={styles.reminderModalBtn}>
+                                <Text style={[styles.reminderModalBtnText, { color: '#FF5252' }]}>
+                                    {t("ok")}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
-        </Modal>
+            </Modal>
 
-        <Modal
-            visible={showTimePicker}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowTimePicker(false)}
-        >
-            <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowTimePicker(false)}
+            <Modal
+                visible={showTimePicker}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowTimePicker(false)}
             >
-                <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
-                    <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                        {activeTimeField === "start"
-                            ? t("select_start_time")
-                            : t("select_end_time")}
-                    </Text>
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowTimePicker(false)}
+                >
+                    <View style={[styles.datePickerModal, { backgroundColor: colors.background }]}>
+                        <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                            {activeTimeField === "start"
+                                ? t("select_start_time")
+                                : t("select_end_time")}
+                        </Text>
 
-                    <DateTimePicker
-                        value={tempTime}
-                        mode="time"
-                        display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={(event, selectedTime) => {
-                            if (selectedTime) {
-                                setTempTime(selectedTime);
-                            }
-                        }}
-                        textColor={colors.textPrimary}
-                    />
-
-                    <View style={styles.modalButtons}>
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={() => setShowTimePicker(false)}
-                        >
-                            <Text style={styles.modalButtonText}>
-                                {t("cancel")}
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.modalButton, styles.modalButtonPrimary]}
-                            onPress={() => {
-                                if (activeTimeField === "start") {
-                                    setFormData({ ...formData, startTime: tempTime });
-                                } else {
-                                    setFormData({ ...formData, endTime: tempTime });
+                        <DateTimePicker
+                            value={tempTime}
+                            mode="time"
+                            display={Platform.OS === "ios" ? "spinner" : "default"}
+                            onChange={(event, selectedTime) => {
+                                if (selectedTime) {
+                                    setTempTime(selectedTime);
                                 }
-                                setShowTimePicker(false);
                             }}
-                        >
-                            <Text style={styles.modalButtonTextPrimary}>
-                                {t("ok")}
-                            </Text>
-                        </TouchableOpacity>
+                            textColor={colors.textPrimary}
+                        />
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={styles.modalButton}
+                                onPress={() => setShowTimePicker(false)}
+                            >
+                                <Text style={styles.modalButtonText}>
+                                    {t("cancel")}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonPrimary]}
+                                onPress={() => {
+                                    if (activeTimeField === "start") {
+                                        // ===== START TIME VALIDATION =====
+                                        const newStartDateTime = new Date(formData.startDate);
+                                        newStartDateTime.setHours(tempTime.getHours());
+                                        newStartDateTime.setMinutes(tempTime.getMinutes());
+                                        newStartDateTime.setSeconds(0);
+
+                                        const currentEndDateTime = new Date(formData.endDate);
+                                        currentEndDateTime.setHours(formData.endTime.getHours());
+                                        currentEndDateTime.setMinutes(formData.endTime.getMinutes());
+                                        currentEndDateTime.setSeconds(0);
+
+                                        // Check: start datetime <= end datetime
+                                        if (currentEndDateTime <= newStartDateTime) {
+                                            // Auto-adjust: end time ko 1 hour aage set karo
+                                            const newEndTime = new Date(tempTime.getTime() + 3600000);
+                                            setFormData({
+                                                ...formData,
+                                                startTime: tempTime,
+                                                endTime: newEndTime
+                                            });
+                                        } else {
+                                            setFormData({ ...formData, startTime: tempTime });
+                                        }
+                                        setShowTimePicker(false);
+
+                                    } else {
+                                        // ===== END TIME VALIDATION =====
+                                        const currentStartDateTime = new Date(formData.startDate);
+                                        currentStartDateTime.setHours(formData.startTime.getHours());
+                                        currentStartDateTime.setMinutes(formData.startTime.getMinutes());
+                                        currentStartDateTime.setSeconds(0);
+
+                                        const selectedEndDateTime = new Date(formData.endDate);
+                                        selectedEndDateTime.setHours(tempTime.getHours());
+                                        selectedEndDateTime.setMinutes(tempTime.getMinutes());
+                                        selectedEndDateTime.setSeconds(0);
+
+                                        // Validation: end datetime must be > start datetime
+                                        if (selectedEndDateTime <= currentStartDateTime) {
+                                            Alert.alert(
+                                                t("error") || "Error",
+                                                t("end_time_validation") || "End date and time must be after start date and time",
+                                                [{ text: t("ok") || "OK" }]
+                                            );
+                                            return; // Modal open rahega
+                                        }
+
+                                        setFormData({ ...formData, endTime: tempTime });
+                                        setShowTimePicker(false);
+                                    }
+                                }}
+                            >
+                                <Text style={styles.modalButtonTextPrimary}>
+                                    {t("ok")}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </TouchableOpacity>
-        </Modal>
+                </TouchableOpacity>
+            </Modal>
 
-        <IOSTimePicker
-            visible={showStartTimeModal}
-            time={formData.startTime}
-            onClose={() => setShowStartTimeModal(false)}
-            onConfirm={(time) => {
-                setFormData({ ...formData, startTime: time });
-                setShowStartTimeModal(false);
-            }}
-            colors={colors}
-        />
+            <IOSTimePicker
+                visible={showStartTimeModal}
+                time={formData.startTime}
+                onClose={() => setShowStartTimeModal(false)}
+                onConfirm={(time) => {
+                    setFormData({ ...formData, startTime: time });
+                    setShowStartTimeModal(false);
+                }}
+                colors={colors}
+            />
 
-        <IOSTimePicker
-            visible={showEndTimeModal}
-            time={formData.endTime}
-            onClose={() => setShowEndTimeModal(false)}
-            onConfirm={(time) => {
-                setFormData({ ...formData, endTime: time });
-                setShowEndTimeModal(false);
-            }}
-            colors={colors}
-        />
+            <IOSTimePicker
+                visible={showEndTimeModal}
+                time={formData.endTime}
+                onClose={() => setShowEndTimeModal(false)}
+                onConfirm={(time) => {
+                    setFormData({ ...formData, endTime: time });
+                    setShowEndTimeModal(false);
+                }}
+                colors={colors}
+            />
 
-    </View>
-);
+        </View>
+    );
 
 }
 
@@ -1127,7 +1318,6 @@ function IOSTimePicker({ visible, time, onClose, onConfirm, colors }: any) {
     //         </View>
     //     </TouchableOpacity>
     // </Modal>
-
     // );
 }
 
@@ -1143,6 +1333,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         marginTop: 50,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        alignItems: 'center',
     },
 
     halfSection: {
@@ -1172,6 +1368,10 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         paddingHorizontal: 20,
         gap: 12,
+    },
+    backButton: {
+        padding: 4,
+        marginRight: 10,
     },
     inputText: {
         flex: 1,
@@ -1253,6 +1453,11 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderTopWidth: 1,
         borderTopColor: 'rgba(0,0,0,0.1)',
+    },
+    leftContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
     },
     reminderModalBtn: {
         paddingVertical: 8,
@@ -1478,7 +1683,7 @@ const styles = StyleSheet.create({
         borderColor: '#ddd',
     },
     colorPickerModal: {
-        width: 220,
+        width: 300,
         padding: 18,
         borderRadius: 16,
         backgroundColor: '#fff',

@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from "react-i18next";
 import {
     Alert,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     SafeAreaView,
@@ -16,7 +17,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 import NotificationService from '../../services/NotificationService';
 
 const iconOptions = [
@@ -29,7 +35,6 @@ export default function NewDiaryScreen() {
     const params = useLocalSearchParams();
     const isEditMode = !!params.id;
     const { colors } = useTheme();
-
     const [title, setTitle] = useState('');
     const [selectedIcon, setSelectedIcon] = useState('💪');
     const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -42,6 +47,16 @@ export default function NewDiaryScreen() {
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [showIOSPicker, setShowIOSPicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
 
     useEffect(() => {
         requestNotificationPermission();
@@ -58,7 +73,8 @@ export default function NewDiaryScreen() {
             setSelectedIcon('💪');
             setReminderEnabled(false);
             setSelectedDate(new Date());
-            setSelectedTime(new Date());
+            // setSelectedTime(new Date());
+            setSelectedTime(getMinAllowedTime());
             setLocation('');
             setUrl('');
         }
@@ -177,9 +193,9 @@ export default function NewDiaryScreen() {
                         `diary_${diaryId}_notification`,
                         notificationId
                     );
-                    console.log('✅ Notification ID saved:', notificationId);
+                    console.log('Notification ID saved:', notificationId);
                 } else {
-                    console.error('❌ Failed to schedule notification - Time might be too close');
+                    console.error('Failed to schedule notification - Time might be too close');
                     Alert.alert(
                         'Notice',
                         'Diary saved but reminder time was too close. Please edit and set a future time.'
@@ -260,225 +276,273 @@ export default function NewDiaryScreen() {
         return `${day}/${month}/${year}`;
     };
 
+    // const formatTime = (date: Date) => {
+    //     let hours = date.getHours();
+    //     const minutes = String(date.getMinutes()).padStart(2, '0');
+    //     const ampm = hours >= 12 ? 'PM' : 'AM';
+    //     hours = hours % 12 || 12;
+    //     return `${hours}:${minutes} ${ampm}`;
+    // };
     const formatTime = (date: Date) => {
-        let hours = date.getHours();
+        const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12 || 12;
-        return `${hours}:${minutes} ${ampm}`;
+        return `${hours}:${minutes}`;
+    };
+
+    const getMinAllowedTime = () => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 10);
+        return now;
+    };
+    const resetForm = () => {
+        setTitle('');
+        setSelectedIcon('💪');
+        setReminderEnabled(false);
+        setSelectedDate(new Date());
+        setSelectedTime(getMinAllowedTime());
+        setLocation('');
+        setUrl('');
+        setShowDatePicker(false);
+        setShowTimePicker(false);
+        setShowIOSPicker(false);
+    };
+
+    const handleCancel = () => {
+        resetForm();
+        router.back();
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+        >
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                {/* <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}> */}
+                <View style={[styles.header, { backgroundColor: colors.background }]}>
 
-                <View style={styles.leftContainer}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Feather name="arrow-left" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-
-                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        {isEditMode ? t("edit_diary") : t("new_diary")}
-                    </Text>
-                </View>
-
-                <TouchableOpacity onPress={handleSave} style={[styles.saveButton]}>
-                    <Text style={styles.saveText}>{isEditMode ? t('update') : t('save')}</Text>
-                </TouchableOpacity>
-            </View>
-
-
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                <View style={styles.formContainer}>
-
-                    <View style={styles.inputGroup}>
-                        <TextInput
-                            style={[styles.titleInput, { color: colors.textPrimary, backgroundColor: colors.cardBackground }]}
-                            placeholder={t('type_title')}
-                            placeholderTextColor={colors.textSecondary}
-                            value={title}
-                            onChangeText={setTitle}
-                        />
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={[styles.label, { color: colors.textPrimary }]}>{t('choose_emoji')}</Text>
-                        <View style={styles.iconGrid}>
-                            {iconOptions.map((icon) => (
-                                <TouchableOpacity
-                                    key={icon}
-                                    style={[
-                                        styles.iconButton,
-                                        { backgroundColor: colors.cardBackground },
-                                        selectedIcon === icon && styles.iconButtonSelected,
-                                    ]}
-                                    onPress={() => setSelectedIcon(icon)}
-                                >
-                                    <Text style={styles.iconText}>{icon}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-
-                    <View style={[styles.timeContainer, { backgroundColor: colors.cardBackground }]}>
-                        <Text style={[styles.label, { color: colors.textPrimary }]}>{t('time')}</Text>
-                        <TouchableOpacity
-                            style={[styles.toggle, reminderEnabled && styles.toggleActive]}
-                            onPress={() => setReminderEnabled(!reminderEnabled)}
-                        >
-                            <View style={[styles.toggleCircle, reminderEnabled && styles.toggleCircleActive]} />
+                    <View style={styles.leftContainer}>
+                        <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
+                            <Feather name="arrow-left" size={24} color={colors.textPrimary} />
                         </TouchableOpacity>
+
+                        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                            {isEditMode ? t("edit_diary") : t("new_diary")}
+                        </Text>
                     </View>
 
-                    {reminderEnabled && (
-                        <View style={styles.dateTimeContainer}>
-                            <TouchableOpacity
-                                style={[styles.dateTimeButton, { backgroundColor: colors.cardBackground }]}
-                                onPress={() => handleIOSPickerPress('date')}
-                            >
-                                <Feather name="calendar" size={16} color={colors.textSecondary} style={styles.dateTimeIcon} />
-                                <Text style={[styles.dateTimeText, { color: colors.textPrimary }]}>
-                                    {formatDate(selectedDate)}
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.dateTimeButton, { backgroundColor: colors.cardBackground }]}
-                                onPress={() => handleIOSPickerPress('time')}
-                            >
-                                <Feather name="clock" size={16} color={colors.textSecondary} style={styles.dateTimeIcon} />
-                                <Text style={[styles.dateTimeText, { color: colors.textPrimary }]}>
-                                    {formatTime(selectedTime)}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    <View style={styles.inputGroup}>
-                        <Text style={[styles.label, { color: colors.textSecondary }]}>{t('enter_location')}</Text>
-                        <View style={[styles.inputWithIcon, { backgroundColor: colors.cardBackground }]}>
-                            <Feather name="map-pin" size={18} color={colors.textSecondary} />
-                            <TextInput
-                                style={[styles.input, { color: colors.textPrimary }]}
-                                placeholder={t('location')}
-                                placeholderTextColor={colors.textSecondary}
-                                value={location}
-                                onChangeText={setLocation}
-                            />
-                        </View>
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={[styles.label, { color: colors.textSecondary }]}>{t('enter_URL')}</Text>
-                        <View style={[styles.inputWithIcon, { backgroundColor: colors.cardBackground }]}>
-                            <Feather name="link" size={18} color={colors.textSecondary} />
-                            <TextInput
-                                style={[styles.input, { color: colors.textPrimary }]}
-                                placeholder={t('url')}
-                                placeholderTextColor={colors.textSecondary}
-                                value={url}
-                                onChangeText={setUrl}
-                                keyboardType="url"
-                                autoCapitalize="none"
-                            />
-                        </View>
-                    </View>
+                    <TouchableOpacity onPress={handleSave} style={[styles.saveButton]}>
+                        <Text style={styles.saveText}>{isEditMode ? t('update') : t('save')}</Text>
+                    </TouchableOpacity>
                 </View>
-            </ScrollView>
 
-            {/* iOS Modal Picker */}
-            {Platform.OS === 'ios' && (
-                // <Modal
-                //     visible={showIOSPicker}
-                //     transparent
-                //     animationType="slide"
-                // >
-                //     <View style={styles.modalOverlay}>
-                //         <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-                //             <View style={styles.modalHeader}>
-                //                 <TouchableOpacity onPress={() => setShowIOSPicker(false)}>
-                //                     <Text style={[styles.modalButton, { color: '#FF6B6B' }]}>Cancel</Text>
-                //                 </TouchableOpacity>
-                //                 <TouchableOpacity onPress={() => setShowIOSPicker(false)}>
-                //                     <Text style={[styles.modalButton, { color: '#FF6B6B' }]}>Done</Text>
-                //                 </TouchableOpacity>
-                //             </View>
-                //             <DateTimePicker
-                //                 value={pickerMode === 'date' ? selectedDate : selectedTime}
-                //                 mode={pickerMode}
-                //                 display="spinner"
-                //                 onChange={pickerMode === 'date' ? onDateChange : onTimeChange}
-                //                 textColor={colors.textPrimary}
-                //             />
-                //         </View>
-                //     </View>
-                // </Modal>
-                <Modal visible={showIOSPicker} transparent animationType="fade">
-                    <View style={styles.modalOverlay}>
-                        <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                    <View style={styles.formContainer}>
 
-                            {/* Title */}
-                            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                                {t('select_reminder_time')}
-                            </Text>
+                        <View style={styles.inputGroup}>
+                            <TextInput
+                                style={[styles.titleInput, { color: colors.textPrimary, backgroundColor: colors.cardBackground }]}
+                                placeholder={t('type_title')}
+                                placeholderTextColor={colors.textSecondary}
+                                value={title}
+                                onChangeText={setTitle}
+                            />
+                        </View>
 
-                            <View style={styles.pickerWrapper}>
-                                <DateTimePicker
-                                    value={pickerMode === 'date' ? selectedDate : selectedTime}
-                                    mode={pickerMode}
-                                    display="spinner"
-                                    onChange={pickerMode === 'date' ? onDateChange : onTimeChange}
-                                    textColor={colors.textPrimary}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textPrimary }]}>{t('choose_emoji')}</Text>
+                            <View style={styles.iconGrid}>
+                                {iconOptions.map((icon) => (
+                                    <TouchableOpacity
+                                        key={icon}
+                                        style={[
+                                            styles.iconButton,
+                                            { backgroundColor: colors.cardBackground },
+                                            selectedIcon === icon && styles.iconButtonSelected,
+                                        ]}
+                                        onPress={() => setSelectedIcon(icon)}
+                                    >
+                                        <Text style={styles.iconText}>{icon}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        <View style={[styles.timeContainer, { backgroundColor: colors.cardBackground }]}>
+                            <Text style={[styles.label, { color: colors.textPrimary }]}>{t('time')}</Text>
+                            <TouchableOpacity
+                                style={[styles.toggle, reminderEnabled && styles.toggleActive]}
+                                onPress={() => setReminderEnabled(!reminderEnabled)}
+                            >
+                                <View style={[styles.toggleCircle, reminderEnabled && styles.toggleCircleActive]} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {reminderEnabled && (
+                            <View style={styles.dateTimeContainer}>
+                                <TouchableOpacity
+                                    style={[styles.dateTimeButton, { backgroundColor: colors.cardBackground }]}
+                                    onPress={() => handleIOSPickerPress('date')}
+                                >
+                                    <Feather name="calendar" size={16} color={colors.textSecondary} style={styles.dateTimeIcon} />
+                                    <Text style={[styles.dateTimeText, { color: colors.textPrimary }]}>
+                                        {formatDate(selectedDate)}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.dateTimeButton, { backgroundColor: colors.cardBackground }]}
+                                    onPress={() => handleIOSPickerPress('time')}
+                                >
+                                    <Feather name="clock" size={16} color={colors.textSecondary} style={styles.dateTimeIcon} />
+                                    <Text style={[styles.dateTimeText, { color: colors.textPrimary }]}>
+                                        {formatTime(selectedTime)}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        <View style={styles.inputGroup}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('enter_location')}</Text>
+                            <View style={[styles.inputWithIcon, { backgroundColor: colors.cardBackground }]}>
+                                <Feather name="map-pin" size={18} color={colors.textSecondary} />
+                                <TextInput
+                                    style={[styles.input, { color: colors.textPrimary }]}
+                                    placeholder={t('location')}
+                                    placeholderTextColor={colors.textSecondary}
+                                    value={location}
+                                    onChangeText={setLocation}
                                 />
                             </View>
+                        </View>
 
-                            <View style={styles.modalFooter}>
-                                <TouchableOpacity onPress={() => setShowIOSPicker(false)} style={styles.modalButton}>
-                                    <Text style={[styles.modalButtonText, { color: colors.textSecondary }]}>
-                                        {t('cancel')}
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.modalButton, styles.modalButtonPrimary]}
-                                    onPress={() => setShowIOSPicker(false)}
-                                >
-                                    <Text style={[styles.modalButtonTextPrimary]}>
-                                        {t('ok')}
-                                    </Text>
-                                </TouchableOpacity>
+                        <View style={styles.inputGroup}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>{t('enter_URL')}</Text>
+                            <View style={[styles.inputWithIcon, { backgroundColor: colors.cardBackground }]}>
+                                <Feather name="link" size={18} color={colors.textSecondary} />
+                                <TextInput
+                                    style={[styles.input, { color: colors.textPrimary }]}
+                                    placeholder={t('url')}
+                                    placeholderTextColor={colors.textSecondary}
+                                    value={url}
+                                    onChangeText={setUrl}
+                                    keyboardType="url"
+                                    autoCapitalize="none"
+                                />
                             </View>
                         </View>
                     </View>
-                </Modal>
-            )}
+                </ScrollView>
+                {bannerConfig?.show && (
+                    <View style={styles.stickyAdContainer}>
+                        <GAMBannerAd
+                            unitId={bannerConfig.id}
+                            sizes={[BannerAdSize.BANNER]}
+                            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                        />
+                    </View>
+                )}
+                {/* iOS Modal Picker */}
+                {Platform.OS === 'ios' && (
+                    // <Modal
+                    //     visible={showIOSPicker}
+                    //     transparent
+                    //     animationType="slide"
+                    // >
+                    //     <View style={styles.modalOverlay}>
+                    //         <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+                    //             <View style={styles.modalHeader}>
+                    //                 <TouchableOpacity onPress={() => setShowIOSPicker(false)}>
+                    //                     <Text style={[styles.modalButton, { color: '#FF6B6B' }]}>Cancel</Text>
+                    //                 </TouchableOpacity>
+                    //                 <TouchableOpacity onPress={() => setShowIOSPicker(false)}>
+                    //                     <Text style={[styles.modalButton, { color: '#FF6B6B' }]}>Done</Text>
+                    //                 </TouchableOpacity>
+                    //             </View>
+                    //             <DateTimePicker
+                    //                 value={pickerMode === 'date' ? selectedDate : selectedTime}
+                    //                 mode={pickerMode}
+                    //                 display="spinner"
+                    //                 onChange={pickerMode === 'date' ? onDateChange : onTimeChange}
+                    //                 textColor={colors.textPrimary}
+                    //             />
+                    //         </View>
+                    //     </View>
+                    // </Modal>
+                    <Modal visible={showIOSPicker} transparent animationType="fade">
+                        <View style={styles.modalOverlay}>
+                            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
 
-            {/* Android Date Picker */}
-            {Platform.OS === 'android' && showDatePicker && (
-                <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                />
-            )}
+                                {/* Title */}
+                                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                                    {t('select_reminder_time')}
+                                </Text>
 
-            {/* Android Time Picker */}
-            {Platform.OS === 'android' && showTimePicker && (
-                <DateTimePicker
-                    value={selectedTime}
-                    mode="time"
-                    display="default"
-                    onChange={onTimeChange}
-                />
-            )}
-        </SafeAreaView>
+                                <View style={styles.pickerWrapper}>
+                                    <DateTimePicker
+                                        value={pickerMode === 'date' ? selectedDate : selectedTime}
+                                        mode={pickerMode}
+                                        display="spinner"
+                                        onChange={pickerMode === 'date' ? onDateChange : onTimeChange}
+                                        textColor={colors.textPrimary}
+                                    />
+                                </View>
+
+                                <View style={styles.modalFooter}>
+                                    <TouchableOpacity onPress={() => setShowIOSPicker(false)} style={styles.modalButton}>
+                                        <Text style={[styles.modalButtonText, { color: colors.textSecondary }]}>
+                                            {t('cancel')}
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.modalButton, styles.modalButtonPrimary]}
+                                        onPress={() => setShowIOSPicker(false)}
+                                    >
+                                        <Text style={[styles.modalButtonTextPrimary]}>
+                                            {t('ok')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
+                )}
+
+                {/* Android Date Picker */}
+                {Platform.OS === 'android' && showDatePicker && (
+                    <DateTimePicker
+                        value={selectedDate}
+                        mode="date"
+                        display="default"
+                        onChange={onDateChange}
+                    />
+                )}
+
+                {/* Android Time Picker */}
+                {Platform.OS === 'android' && showTimePicker && (
+                    <DateTimePicker
+                        value={selectedTime}
+                        mode="time"
+                        display="default"
+                        onChange={onTimeChange}
+                    />
+                )}
+            </SafeAreaView>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',

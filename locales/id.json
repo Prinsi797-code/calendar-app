@@ -307,6 +307,10 @@
     "notifications_disabled": "Notifikasi dinonaktifkan",
     "notifications_enabled": "Notifikasi diaktifkan",
     "no_event_yet": "Belum ada acara",
-    "done": "Selesai"
+    "done": "Selesai",
+    "delete_event_title": "Hapus Acara",
+    "delete_event_message": "Apakah Anda yakin ingin menghapus acara ini?",
+    "updated": "Perbarui"
+
 
 }

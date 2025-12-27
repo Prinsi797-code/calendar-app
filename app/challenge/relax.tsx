@@ -1,8 +1,8 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import React from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -11,7 +11,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface ChallengeOption {
     id: string;
@@ -21,72 +26,72 @@ interface ChallengeOption {
 }
 
 const relaxChallenges: ChallengeOption[] = [
-  {
-    id: 'body',
-    title: 'relax_your_mind',
-    subtitle: 'relieve_anxiety_depression',
-    icon: 'meditation',
-  },
-  {
-    id: 'brushing',
-    title: 'regular_tooth',
-    subtitle: 'gear_up_for',
-    icon: 'toothbrush',
-  },
-  {
-    id: 'books',
-    title: 'read_books',
-    subtitle: 'strengthen_the_brain',
-    icon: 'book-open-page-variant',
-  },
-  {
-    id: 'sleep',
-    title: 'get_enough_sleep',
-    subtitle: 'reduce_strees_improve',
-    icon: 'sleep',
-  },
-  {
-    id: 'journal',
-    title: 'Keep_journal',
-    subtitle: 'allow_yourself_reflect',
-    icon: 'notebook-edit-outline',
-  },
-  {
-    id: 'shower',
-    title: 'take_a_shower',
-    subtitle: 'decreased_anxiety',
-    icon: 'shower',
-  },
-  {
-    id: 'music',
-    title: 'listen_to_music',
-    subtitle: 'provide_comfort_lessen',
-    icon: 'music-note',
-  },
-  {
-    id: 'smile',
-    title: 'smile_everyday',
-    subtitle: 'smiling_elevates_mood',
-    icon: 'emoticon-happy-outline',
-  },
-  {
-    id: 'chat',
-    title: 'chat_with_friends',
-    subtitle: 'reduce_pressure_life',
-    icon: 'chat-outline',
-  },
-  {
-    id: 'sleep2',
-    title: 'sleep_early',
-    subtitle: 'improve_your_memories',
-    icon: 'bed-clock',
-  },
-  {
-    id: 'media',
-    title: 'break_away_from_media',
-    subtitle: 'find_value_yourself',
-    icon: 'cellphone-off',
-  },
+    {
+        id: 'body',
+        title: 'relax_your_mind',
+        subtitle: 'relieve_anxiety_depression',
+        icon: 'meditation',
+    },
+    {
+        id: 'brushing',
+        title: 'regular_tooth',
+        subtitle: 'gear_up_for',
+        icon: 'toothbrush',
+    },
+    {
+        id: 'books',
+        title: 'read_books',
+        subtitle: 'strengthen_the_brain',
+        icon: 'book-open-page-variant',
+    },
+    {
+        id: 'sleep',
+        title: 'get_enough_sleep',
+        subtitle: 'reduce_strees_improve',
+        icon: 'sleep',
+    },
+    {
+        id: 'journal',
+        title: 'Keep_journal',
+        subtitle: 'allow_yourself_reflect',
+        icon: 'notebook-edit-outline',
+    },
+    {
+        id: 'shower',
+        title: 'take_a_shower',
+        subtitle: 'decreased_anxiety',
+        icon: 'shower',
+    },
+    {
+        id: 'music',
+        title: 'listen_to_music',
+        subtitle: 'provide_comfort_lessen',
+        icon: 'music-note',
+    },
+    {
+        id: 'smile',
+        title: 'smile_everyday',
+        subtitle: 'smiling_elevates_mood',
+        icon: 'emoticon-happy-outline',
+    },
+    {
+        id: 'chat',
+        title: 'chat_with_friends',
+        subtitle: 'reduce_pressure_life',
+        icon: 'chat-outline',
+    },
+    {
+        id: 'sleep2',
+        title: 'sleep_early',
+        subtitle: 'improve_your_memories',
+        icon: 'bed-clock',
+    },
+    {
+        id: 'media',
+        title: 'break_away_from_media',
+        subtitle: 'find_value_yourself',
+        icon: 'cellphone-off',
+    },
 ];
 
 
@@ -95,12 +100,22 @@ export default function RelaxationScreen() {
     const { t } = useTranslation();
     const { from } = useLocalSearchParams();
     const { theme, colors } = useTheme();
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
 
     const handleChallengeSelect = (challenge: ChallengeOption) => {
         router.push({
             pathname: '/challenge/new',
             params: {
-                title: challenge.title,
+                title: t(challenge.title),
                 icon: challenge.icon,
                 category: 'relax'
             }
@@ -139,7 +154,6 @@ export default function RelaxationScreen() {
                     </Text>
                 </View>
             </View>
-
             <ScrollView style={styles.scrollView}>
                 <View style={styles.challengesList}>
                     {relaxChallenges.map((challenge) => (
@@ -169,6 +183,15 @@ export default function RelaxationScreen() {
                     ))}
                 </View>
             </ScrollView>
+            {bannerConfig?.show && (
+                <View style={styles.stickyAdContainer}>
+                    <GAMBannerAd
+                        unitId={bannerConfig.id}
+                        sizes={[BannerAdSize.BANNER]}
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -176,6 +199,12 @@ export default function RelaxationScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        alignItems: 'center',
     },
     header: {
         flexDirection: 'row',

@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -12,7 +12,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  BannerAdSize,
+  GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface Challenge {
   id: string;
@@ -31,6 +36,16 @@ export default function ChallengeDetailsScreen() {
   const { colors, theme } = useTheme();
   const { t } = useTranslation();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [bannerConfig, setBannerConfig] = useState<{
+    show: boolean;
+    id: string;
+    position: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const config = AdsManager.getBannerConfig('home');
+    setBannerConfig(config);
+  }, []);
 
   const loadChallenge = async () => {
     try {
@@ -111,7 +126,7 @@ export default function ChallengeDetailsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Feather name="arrow-left" size={24} style={{ color: colors.textPrimary }}/>
+          <Feather name="arrow-left" size={24} style={{ color: colors.textPrimary }} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{t("challenge_details")}</Text>
         <View style={styles.headerActions}>
@@ -122,13 +137,13 @@ export default function ChallengeDetailsScreen() {
             })}
             style={styles.headerButton}
           >
-            <Feather name="edit" size={20}  style={{ color: colors.textPrimary }}/>
+            <Feather name="edit" size={20} style={{ color: colors.textPrimary }} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleDelete}
             style={styles.headerButton}
           >
-            <Feather name="trash-2" size={20} style={{ color: colors.textPrimary }}/>
+            <Feather name="trash-2" size={20} style={{ color: colors.textPrimary }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -147,7 +162,7 @@ export default function ChallengeDetailsScreen() {
         </View>
 
         <View style={styles.detailsSection}>
-          <View style={[styles.detailRow,  { backgroundColor: colors.cardBackground }]}>
+          <View style={[styles.detailRow, { backgroundColor: colors.cardBackground }]}>
             <View style={styles.detailItem}>
               <View style={styles.leftSide}>
                 <Feather name="repeat" size={20} color={colors.textSecondary} />
@@ -225,6 +240,15 @@ export default function ChallengeDetailsScreen() {
           </View>
         </View> */}
       </ScrollView>
+      {bannerConfig?.show && (
+        <View style={styles.stickyAdContainer}>
+          <GAMBannerAd
+            unitId={bannerConfig.id}
+            sizes={[BannerAdSize.BANNER]}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -234,14 +258,19 @@ const styles = StyleSheet.create({
     flex: 1,
     // backgroundColor: '#000',
   },
+  stickyAdContainer: {
+    // position: 'absolute',
+    bottom: 0,
+    marginTop: 20,
+    width: '100%',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    // borderBottomWidth: 1,
-    // borderBottomColor: '#1a1a1a',
   },
   headerTitle: {
     fontSize: 18,

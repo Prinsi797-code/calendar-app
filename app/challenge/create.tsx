@@ -1,6 +1,8 @@
+// create.tsx - Use router.replace to clear previous params
+
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     SafeAreaView,
@@ -10,7 +12,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import {
+    BannerAdSize,
+    GAMBannerAd
+} from 'react-native-google-mobile-ads';
 import { useTheme } from '../../contexts/ThemeContext';
+import AdsManager from '../../services/adsManager';
 
 interface CreateOption {
     id: string;
@@ -85,10 +92,25 @@ export default function CreateScreen() {
     const { theme, colors } = useTheme();
     const { t } = useTranslation();
 
+    const [bannerConfig, setBannerConfig] = useState<{
+        show: boolean;
+        id: string;
+        position: string;
+    } | null>(null);
+
+    useEffect(() => {
+        const config = AdsManager.getBannerConfig('home');
+        setBannerConfig(config);
+    }, []);
+
+    // ✅ FIX: Use push without params to start fresh
     const handleCreateOption = (optionId: string) => {
         router.push({
             pathname: '/challenge/new',
-            params: { type: optionId }
+            params: { 
+                type: optionId,
+                // Don't pass any title/icon - let it use defaults
+            }
         });
     };
 
@@ -153,7 +175,7 @@ export default function CreateScreen() {
 
                 {/* Categories section */}
                 <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>
-                     {t("choose_categories")}
+                    {t("choose_categories")}
                 </Text>
 
                 <View style={styles.categoriesContainer}>
@@ -179,10 +201,18 @@ export default function CreateScreen() {
                     ))}
                 </View>
             </ScrollView>
+            {bannerConfig?.show && (
+                <View style={styles.stickyAdContainer}>
+                    <GAMBannerAd
+                        unitId={bannerConfig.id}
+                        sizes={[BannerAdSize.BANNER]}
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -244,7 +274,14 @@ const styles = StyleSheet.create({
     },
     categoriesContainer: {
         gap: 12,
+        marginTop: 10,
         paddingBottom: 24,
+    },
+    stickyAdContainer: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        alignItems: 'center',
     },
     categoryCard: {
         borderRadius: 12,

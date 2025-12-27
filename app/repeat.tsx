@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,9 +7,8 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { useTheme } from "../contexts/ThemeContext";
@@ -19,15 +18,55 @@ export default function RepeatScreen() {
     const { selectedRepeat, source, eventId } = allParams;
     const { colors } = useTheme();
     const { t } = useTranslation();
-    const [repeatType, setRepeatType] = useState(
-        selectedRepeat || "does_not"
-    );
+
+    const [tempRepeatType, setTempRepeatType] = useState("does_not");
+    const [tempDurationType, setTempDurationType] = useState("forever");
+    const [tempTimesCount, setTempTimesCount] = useState("10");
+    const [tempUntilDate, setTempUntilDate] = useState(new Date());
+
     const router = useRouter();
-    const [durationType, setDurationType] = useState("forever");
-    const [timesCount, setTimesCount] = useState("10");
-    const [untilDate, setUntilDate] = useState(new Date());
     const [showDateModal, setShowDateModal] = useState(false);
 
+    const getParamValue = (value?: string | string[]) => {
+        if (Array.isArray(value)) {
+            return value[0];
+        }
+        return value;
+    };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            setTempRepeatType(getParamValue(allParams.repeatValue) ?? "does_not");
+            setTempDurationType(getParamValue(allParams.repeatDuration) ?? "forever");
+            setTempTimesCount(getParamValue(allParams.repeatCount) ?? "10");
+
+            // ✅ Proper date parsing
+            const untilDateStr = getParamValue(allParams.repeatUntil);
+            if (untilDateStr) {
+                try {
+                    const parsedDate = new Date(untilDateStr);
+                    // Check if date is valid
+                    if (!isNaN(parsedDate.getTime())) {
+                        setTempUntilDate(parsedDate);
+                    } else {
+                        setTempUntilDate(new Date());
+                    }
+                } catch (error) {
+                    setTempUntilDate(new Date());
+                }
+            } else {
+                setTempUntilDate(new Date());
+            }
+        }, [allParams.repeatValue, allParams.repeatDuration, allParams.repeatCount, allParams.repeatUntil])
+    );
+
+    // const repeatOptions = [
+    //     { key: "does_not", label: t("does_not_repeat") },
+    //     { key: "everyday", label: t("everyday") },
+    //     { key: "every_week", label: t("every_week") },
+    //     { key: "every_month", label: t("every_month") },
+    //     { key: "every_year", label: t("every_year") },
+    // ];
 
     const repeatOptions = [
         { key: "does_not", label: t("does_not_repeat") },
@@ -36,43 +75,65 @@ export default function RepeatScreen() {
         { key: "every_month", label: t("every_month") },
         { key: "every_year", label: t("every_year") },
     ];
-
     const durationOptions = [
         { key: "forever", label: t("forever") },
-        { key: "until", label: t("until") },
-        { key: "specific", label: t("specific") }
+        // { key: "until", label: t("until") },
+        // { key: "specific", label: t("specific") }
     ];
+
     const handleBack = () => {
         if (source === "editEvent") {
             router.replace({
                 pathname: "/editEvent",
-                params: { ...allParams }
+                params: {
+                    ...allParams,
+                    repeatValue: getParamValue(allParams.repeatValue) ?? "does_not",
+                    repeatDuration: getParamValue(allParams.repeatDuration) ?? "forever",
+                    repeatCount: getParamValue(allParams.repeatCount) ?? "10",
+                    repeatUntil: getParamValue(allParams.repeatUntil),
+                }
+
             });
         } else {
             router.replace({
                 pathname: "/addEvent",
-                params: { ...allParams }
+                params: {
+                    repeatValue: getParamValue(allParams.repeatValue) ?? "does_not",
+                    repeatDuration: getParamValue(allParams.repeatDuration) ?? "forever",
+                    repeatCount: getParamValue(allParams.repeatCount) ?? "10",
+                    repeatUntil: getParamValue(allParams.repeatUntil),
+                },
             });
+
         }
     };
+    // const handleBack = () => {
+    //     router.replace({
+    //         pathname: source === "editEvent" ? "/editEvent" : "/addEvent",
+    //     });
+    // };
 
     const saveAndGoBack = () => {
         const targetPath = source === 'editEvent' ? '/editEvent' : '/addEvent';
-
         const params: any = {
-            repeatValue: repeatType,
-            repeatDuration: durationType,
-            repeatCount: timesCount,
-            repeatUntil: formatDateForDisplay(untilDate),
+            repeatValue: tempRepeatType,
+            repeatDuration: tempDurationType,
+            repeatCount: tempTimesCount,
+            repeatUntil: tempUntilDate.toISOString(),
         };
+
         if (source === 'editEvent' && eventId) {
             params.eventId = eventId;
             Object.keys(allParams).forEach(key => {
-                if (key !== 'repeatValue' && key !== 'source' && key !== 'selectedRepeat') {
+                if (key !== 'repeatValue' && key !== 'repeatDuration' && key !== 'repeatCount' && key !== 'repeatUntil' && key !== 'source' && key !== 'selectedRepeat') {
                     params[key] = allParams[key];
                 }
             });
         }
+        if (source === 'addEvent') {
+            params.source = 'addEvent';
+        }
+
         router.replace({
             pathname: targetPath,
             params: params,
@@ -105,15 +166,6 @@ export default function RepeatScreen() {
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={[styles.header]}>
-                {/* <TouchableOpacity style={styles.headerLeft} onPress={() => router.back()}>
-                    <Feather name="arrow-left" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <View style={styles.headerCenter}>
-                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                        {t("repeat")}
-                    </Text>
-                </View> */}
-
                 <View style={styles.leftContainer}>
                     <TouchableOpacity
                         onPress={handleBack}
@@ -131,9 +183,9 @@ export default function RepeatScreen() {
             </View>
 
             <ScrollView style={{ padding: 16 }}>
-                {repeatType !== "does_not" && (
+                {tempRepeatType !== "does_not" && (
                     <Text style={[styles.smallText, { color: colors.textSecondary }]}>
-                        {t("this_event_will_repeat")} {getRepeatLabel(repeatType)?.toLowerCase()} {getDurationLabel(durationType)?.toLowerCase()}
+                        {t("this_event_will_repeat")} {getRepeatLabel(tempRepeatType)?.toLowerCase()} {getDurationLabel(tempDurationType)?.toLowerCase()}
                     </Text>
                 )}
 
@@ -144,7 +196,7 @@ export default function RepeatScreen() {
                             styles.option,
                             { backgroundColor: colors.cardBackground },
                         ]}
-                        onPress={() => setRepeatType(item.key)}
+                        onPress={() => setTempRepeatType(item.key)}
                     >
                         <Text style={[styles.text, { color: colors.textPrimary }]}>
                             {item.label}
@@ -153,91 +205,17 @@ export default function RepeatScreen() {
                         <View
                             style={[
                                 styles.circle,
-                                repeatType === item.key && styles.circleSelected,
+                                tempRepeatType === item.key && styles.circleSelected,
                             ]}
                         >
-                            {repeatType === item.key && (
+                            {tempRepeatType === item.key && (
                                 <Feather name="check" size={14} color="#fff" />
                             )}
                         </View>
                     </TouchableOpacity>
                 ))}
-
-                {/* DURATION SECTION - Only show if repeat is NOT "does_not" */}
-                {repeatType !== "does_not" && (
-                    <>
-                        <Text
-                            style={[styles.durationTitle, { color: colors.textSecondary }]}
-                        >
-                            {t("duration")}
-                        </Text>
-
-                        {durationOptions.map((item) => (
-                            <View key={item.key}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.option,
-                                        { backgroundColor: colors.cardBackground },
-                                    ]}
-                                    onPress={() => {
-                                        setDurationType(item.key);
-
-                                        if (item.key === "until") {
-                                            setShowDateModal(true);
-                                        }
-                                    }}
-                                >
-                                    <View style={styles.optionLeft}>
-                                        <Text style={[styles.text, { color: colors.textPrimary }]}>
-                                            {item.label}
-                                        </Text>
-
-                                        {item.key === "until" && durationType === "until" && (
-                                            <Text style={[styles.subText, { color: colors.textSecondary }]}>
-                                                {formatDateForDisplay(untilDate)}
-                                            </Text>
-                                        )}
-
-                                        {item.key === "specific" && durationType === "specific" && (
-                                            <View style={styles.inlineInputContainer}>
-                                                <TextInput
-                                                    keyboardType="numeric"
-                                                    value={timesCount}
-                                                    onChangeText={setTimesCount}
-                                                    style={[
-                                                        styles.inlineInput,
-                                                        {
-                                                            color: colors.textPrimary,
-                                                            borderColor: colors.border,
-                                                        }
-                                                    ]}
-                                                    maxLength={3}
-                                                />
-                                                <Text style={[styles.timesText, { color: colors.textSecondary }]}>
-                                                    {t("time_total")}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </View>
-
-                                    <View
-                                        style={[
-                                            styles.circle,
-                                            durationType === item.key && styles.circleSelected,
-                                        ]}
-                                    >
-                                        {durationType === item.key && (
-                                            <Feather name="check" size={14} color="#fff" />
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                    </>
-                )}
             </ScrollView>
 
-            {/* DATE PICKER MODAL - Calendar Style */}
             <Modal transparent visible={showDateModal} animationType="fade">
                 <View style={styles.modalOverlay}>
                     <TouchableOpacity
@@ -260,7 +238,7 @@ export default function RepeatScreen() {
                         <Calendar
                             minDate={getTodayString()}
                             onDayPress={(day) => {
-                                setUntilDate(new Date(day.dateString));
+                                setTempUntilDate(new Date(day.dateString));
                                 setShowDateModal(false);
                             }}
                             theme={{
@@ -276,7 +254,7 @@ export default function RepeatScreen() {
                                 textMonthFontWeight: '600',
                             }}
                             markedDates={{
-                                [untilDate.toISOString().split('T')[0]]: {
+                                [tempUntilDate.toISOString().split('T')[0]]: {
                                     selected: true,
                                     selectedColor: '#FF5252'
                                 }
@@ -307,6 +285,7 @@ export default function RepeatScreen() {
         </View>
     );
 }
+
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
