@@ -35,6 +35,7 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
+      "@react-native-firebase/app",
       [
         "expo-splash-screen",
         {
@@ -45,6 +46,13 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "@react-native-firebase/crashlytics",
+        {
+          "crashlytics_auto_collection_enabled": true,
+          "crashlytics_ndk_enabled": false
         }
       ],
       [

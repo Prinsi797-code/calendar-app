@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import LocationService from '../services/LocationService';
 import OnboardingService from '../services/OnboardingService';
+import { initializeCrashlytics, logCrashlytics, logError } from '../utils/firebaseConfig';
 
 function CustomHeader() {
   const navigation = useNavigation();
@@ -102,6 +103,7 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
       }
     } catch (error) {
       console.log('Error loading first day:', error);
+      logError(error as Error, 'FirstDaySelector.loadFirstDay');
     }
   };
 
@@ -110,8 +112,10 @@ function FirstDaySelector({ visible, onClose, onSelect }: any) {
       await AsyncStorage.setItem('firstDayOfWeek', selectedDay.toString());
       onSelect(selectedDay);
       onClose();
+      logCrashlytics('First day of week updated: ' + selectedDay);
     } catch (error) {
       console.log('Error saving first day:', error);
+      logError(error as Error, 'FirstDaySelector.handleOk');
     }
   };
 
@@ -205,6 +209,7 @@ function DrawerContent({ navigation }: any) {
   const currentMonth = new Date().getMonth();
 
   const handleYearClick = () => {
+    logCrashlytics('Navigating to year view');
     router.push({
       pathname: '/year-view',
       params: { 
@@ -215,31 +220,37 @@ function DrawerContent({ navigation }: any) {
   };
 
   const handleMonthClick = () => {
+    logCrashlytics('Navigating to month view');
     router.push('/(tabs)');
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
   const handleHolidaysClick = () => {
+    logCrashlytics('Navigating to holidays');
     router.push('/holidays');
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
   const handleWeekClick = () => {
+    logCrashlytics('Navigating to week view');
     router.push('/week');
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
   const handleSettingsClick = () => {
+    logCrashlytics('Navigating to settings');
     router.push('/settings');
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
   const handleCountryClick = () => {
+    logCrashlytics('Navigating to country selection');
     router.push("/country");
     navigation.dispatch(DrawerActions.closeDrawer());
   };
 
   const handlelanguageClick = () => {
+    logCrashlytics('Navigating to language selection');
     router.push("/language");
     navigation.dispatch(DrawerActions.closeDrawer());
   };
@@ -358,35 +369,51 @@ function DrawerNavigator() {
   const [isReady, setIsReady] = useState(false);
   const [shouldShowLanguage, setShouldShowLanguage] = useState(false);
 
-  // ✅ Check onboarding status and initialize app
+  // ✅ Initialize Crashlytics + Check onboarding status
   useEffect(() => {
     const initializeApp = async () => {
       try {
         console.log('🚀 Initializing app...');
         
+        // ✅ CRASHLYTICS INITIALIZE - SABSE PEHLE
+        try {
+          await initializeCrashlytics();
+          logCrashlytics('App started successfully');
+          console.log('✅ Crashlytics initialized');
+        } catch (crashError) {
+          console.error('❌ Crashlytics initialization failed:', crashError);
+          // Continue app initialization even if crashlytics fails
+        }
+        
         // Initialize location detection (runs in background)
         LocationService.fetchAndSaveUserCountry().then((country) => {
           if (country) {
             console.log('✅ User country set to:', country);
+            logCrashlytics(`User country detected: ${country}`);
           }
         }).catch(err => {
           console.log('❌ Location detection failed:', err);
+          logError(err as Error, 'LocationService.fetchAndSaveUserCountry');
         });
 
         // Check if onboarding is completed
         const completed = await OnboardingService.isOnboardingCompleted();
         console.log('🔍 Onboarding completed:', completed);
+        logCrashlytics(`Onboarding status: ${completed ? 'completed' : 'pending'}`);
 
         if (!completed) {
           // First time user - show language screen
           console.log('🌍 First time user - Will show language screen');
+          logCrashlytics('First time user - showing language screen');
           setShouldShowLanguage(true);
         }
 
         // Mark as ready
         setIsReady(true);
+        logCrashlytics('App initialization completed');
       } catch (error) {
         console.error('❌ Error initializing app:', error);
+        logError(error as Error, 'DrawerNavigator.initializeApp');
         // Still mark as ready to prevent infinite loading
         setIsReady(true);
       }
@@ -399,6 +426,7 @@ function DrawerNavigator() {
   useEffect(() => {
     if (isReady && shouldShowLanguage) {
       console.log('🌍 Navigating to language screen');
+      logCrashlytics('Navigating to language screen for first-time user');
       // Small delay to ensure router is ready
       setTimeout(() => {
         router.replace('/language');

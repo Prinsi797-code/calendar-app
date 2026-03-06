@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import {
-    AdEventType,
-    AppOpenAd,
-    InterstitialAd,
-    TestIds,
+  AdEventType,
+  AppOpenAd,
+  InterstitialAd,
+  TestIds,
 } from 'react-native-google-mobile-ads';
-import { fetchAppConfig } from '../utils/firebaseConfig';
+import { fetchAppConfig, logCrashlytics, logError } from '../utils/firebaseConfig';
+
 
 interface AdConfig {
   android_app_open_id: string;
@@ -67,11 +68,11 @@ class AdsManager {
   private readonly SCREEN_VISIT_PREFIX = 'screen_visit_';
 
   private sessionAdsShown: Set<string> = new Set();
-  
+
   private recentAdShown: { screenName: string; timestamp: number } | null = null;
   private readonly AD_COOLDOWN_MS = 30000;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): AdsManager {
     if (!AdsManager.instance) {
@@ -84,20 +85,24 @@ class AdsManager {
   async loadConfigFromFirebase(): Promise<boolean> {
     try {
       console.log('📥 Loading ad config from Firebase...');
+      logCrashlytics('Loading ad config from Firebase');
       const firebaseConfig = await fetchAppConfig();
-      
+
       if (firebaseConfig) {
         this.config = firebaseConfig as AdConfig;
         this.isConfigLoaded = true;
         console.log('✅ Firebase ad config loaded:', this.config);
+        logCrashlytics('Firebase ad config loaded successfully');
         return true;
       } else {
         console.log('⚠️ No Firebase config found');
+        logCrashlytics('No Firebase config found');
         this.isConfigLoaded = false;
         return false;
       }
     } catch (error) {
       console.log('❌ Failed to load Firebase config:', error);
+      logError(error as Error, 'AdsManager.loadConfigFromFirebase');
       this.isConfigLoaded = false;
       return false;
     }
@@ -118,8 +123,8 @@ class AdsManager {
     let adId: string | undefined;
 
     if (type === 'app_open') {
-      adId = Platform.OS === 'ios' 
-        ? this.config.ios_app_open_id 
+      adId = Platform.OS === 'ios'
+        ? this.config.ios_app_open_id
         : this.config.android_app_open_id;
     } else if (type === 'interstitial') {
       adId = Platform.OS === 'ios'
@@ -209,9 +214,11 @@ class AdsManager {
         await this.appOpenAd.show();
         await AsyncStorage.setItem(this.APP_OPEN_SHOWN_KEY, new Date().toISOString());
         console.log('✅ App Open Ad Shown');
+        logCrashlytics('App Open Ad shown successfully');
         return true;
       } catch (error) {
         console.log('❌ App Open Ad Show Failed:', error);
+        logError(error as Error, 'AdsManager.showAppOpenAd');
         this.isShowingAd = false;
         return false;
       }
@@ -397,22 +404,22 @@ class AdsManager {
 
   private isAdInCooldown(): boolean {
     if (!this.recentAdShown) return false;
-    
+
     const now = Date.now();
     const timeSinceLastAd = now - this.recentAdShown.timestamp;
-    
+
     if (timeSinceLastAd < this.AD_COOLDOWN_MS) {
       console.log(`⏭️ Ad cooldown active (${Math.round((this.AD_COOLDOWN_MS - timeSinceLastAd) / 1000)}s remaining)`);
       return true;
     }
-    
+
     this.recentAdShown = null;
     return false;
   }
 
   async showBackButtonAd(screenName: string): Promise<boolean> {
     console.log('🎬 Attempting to show back button ad for:', screenName);
-    
+
     if (!this.isAdsEnabled() || this.isShowingAd) {
       console.log('⏭️ Ads disabled or already showing');
       return false;
@@ -471,23 +478,23 @@ class AdsManager {
 
     try {
       this.isShowingAd = true;
-      
+
       return new Promise<boolean>((resolve) => {
         const closedListener = this.interstitialAd?.addAdEventListener(
           AdEventType.CLOSED,
           async () => {
             console.log('Back button ad closed');
             this.isShowingAd = false;
-            
+
             this.recentAdShown = {
               screenName,
               timestamp: Date.now()
             };
-            
+
             if (frequency === 1) {
               await this.trackScreenVisit(screenName);
             }
-            
+
             if (frequency === 3) {
               await AsyncStorage.setItem(this.BACK_AD_LAST_SHOWN_KEY, new Date().toISOString());
             }
@@ -501,7 +508,7 @@ class AdsManager {
             }
 
             this.loadInterstitialAd();
-            
+
             console.log(`✅ Back button ad shown for ${screenName}`);
             resolve(true);
           }
@@ -558,16 +565,16 @@ class AdsManager {
   // ==================== INITIALIZATION ====================
   async initializeAds() {
     console.log('🚀 Initializing Ads...');
-    
+
     const configLoaded = await this.loadConfigFromFirebase();
-    
+
     if (!configLoaded) {
       console.log('⚠️ Failed to load Firebase config');
       return;
     }
 
     console.log('📋 Config after loading:', this.config);
-    
+
     if (!this.isAdsEnabled()) {
       console.log('⚠️ Ads are disabled in config');
       console.log('   picker_ads value:', this.config?.picker_ads);
@@ -578,7 +585,7 @@ class AdsManager {
     this.loadAppOpenAd();
     this.loadInterstitialAd();
   }
-  
+
   // NEW: Get current config for debugging
   getConfig() {
     return this.config;
